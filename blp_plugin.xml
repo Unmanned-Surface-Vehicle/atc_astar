@@ -1,0 +1,7 @@
+<library path="lib/librra_local_planner">
+  <class name="rra_local_planner/RRAPlannerROS" type="rra_local_planner::RRAPlannerROS" base_class_type="nav_core::BaseLocalPlanner">
+    <description>
+      A implementation of a local planner using R-RA* approach based on configuration parameters.
+    </description>
+  </class>
+</library>
