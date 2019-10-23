@@ -292,6 +292,87 @@ namespace rra_local_planner {
   }
 
 
+  // /*
+  //  * given the current state of the robot, find a good trajectory
+  //  */
+  // base_local_planner::Trajectory RRAPlanner::findBestPath(
+  //     tf::Stamped<tf::Pose> global_pose,
+  //     tf::Stamped<tf::Pose> global_vel,
+  //     tf::Stamped<tf::Pose>& drive_velocities) {
+
+  //   //make sure that our configuration doesn't change mid-run
+  //   boost::mutex::scoped_lock l(configuration_mutex_);
+
+  //   Eigen::Vector3f pos(global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), tf::getYaw(global_pose.getRotation()));
+  //   Eigen::Vector3f vel(global_vel.getOrigin().getX(), global_vel.getOrigin().getY(), tf::getYaw(global_vel.getRotation()));
+  //   geometry_msgs::PoseStamped goal_pose = global_plan_.back();
+  //   Eigen::Vector3f goal(goal_pose.pose.position.x, goal_pose.pose.position.y, tf::getYaw(goal_pose.pose.orientation));
+  //   base_local_planner::LocalPlannerLimits limits = planner_util_->getCurrentLimits();
+
+  //   // prepare cost functions and generators for this run
+  //   generator_.initialise(pos,
+  //       vel,
+  //       goal,
+  //       &limits,
+  //       vsamples_);
+
+  //   result_traj_.cost_ = -7;
+  //   // find best trajectory by sampling and scoring the samples
+  //   std::vector<base_local_planner::Trajectory> all_explored;
+  //   scored_sampling_planner_.findBestTrajectory(result_traj_, &all_explored);
+
+  //   if(publish_traj_pc_)
+  //   {
+  //       base_local_planner::MapGridCostPoint pt;
+  //       traj_cloud_->points.clear();
+  //       traj_cloud_->width = 0;
+  //       traj_cloud_->height = 0;
+  //       std_msgs::Header header;
+  //       pcl_conversions::fromPCL(traj_cloud_->header, header);
+  //       header.stamp = ros::Time::now();
+  //       traj_cloud_->header = pcl_conversions::toPCL(header);
+  //       for(std::vector<base_local_planner::Trajectory>::iterator t=all_explored.begin(); t != all_explored.end(); ++t)
+  //       {
+  //           if(t->cost_<0)
+  //               continue;
+  //           // Fill out the plan
+  //           for(unsigned int i = 0; i < t->getPointsSize(); ++i) {
+  //               double p_x, p_y, p_th;
+  //               t->getPoint(i, p_x, p_y, p_th);
+  //               pt.x=p_x;
+  //               pt.y=p_y;
+  //               pt.z=0;
+  //               pt.path_cost=p_th;
+  //               pt.total_cost=t->cost_;
+  //               traj_cloud_->push_back(pt);
+  //           }
+  //       }
+  //       traj_cloud_pub_.publish(*traj_cloud_);
+  //   }
+
+  //   // verbose publishing of point clouds
+  //   if (publish_cost_grid_pc_) {
+  //     //we'll publish the visualization of the costs to rviz before returning our best trajectory
+  //     map_viz_.publishCostCloud(planner_util_->getCostmap());
+  //   }
+
+  //   // debrief stateful scoring functions
+  //   oscillation_costs_.updateOscillationFlags(pos, &result_traj_, planner_util_->getCurrentLimits().min_trans_vel);
+
+  //   //if we don't have a legal trajectory, we'll just command zero
+  //   if (result_traj_.cost_ < 0) {
+  //     drive_velocities.setIdentity();
+  //   } else {
+  //     tf::Vector3 start(result_traj_.xv_, result_traj_.yv_, 0);
+  //     drive_velocities.setOrigin(start);
+  //     tf::Matrix3x3 matrix;
+  //     matrix.setRotation(tf::createQuaternionFromYaw(result_traj_.thetav_));
+  //     drive_velocities.setBasis(matrix);
+  //   }
+
+  //   return result_traj_;
+  // }
+
   /*
    * given the current state of the robot, find a good trajectory
    */
@@ -319,7 +400,30 @@ namespace rra_local_planner {
     result_traj_.cost_ = -7;
     // find best trajectory by sampling and scoring the samples
     std::vector<base_local_planner::Trajectory> all_explored;
+
     scored_sampling_planner_.findBestTrajectory(result_traj_, &all_explored);
+
+
+    
+    base_local_planner::Trajectory test_traj = (new base_local_planner::Trajectory());
+    test_traj->add();
+
+
+        traj.xv_ = best_traj.xv_;
+        traj.yv_ = best_traj.yv_;
+        traj.thetav_ = best_traj.thetav_;
+        traj.cost_ = best_traj_cost;
+        traj.resetPoints();
+        double px, py, pth;
+        for (unsigned int i = 0; i < best_traj.getPointsSize(); i++) {
+          best_traj.getPoint(i, px, py, pth);
+          traj.addPoint(px, py, pth);
+        }
+
+        
+    result_traj =
+        all_explored.push_back(result_traj);
+
 
     if(publish_traj_pc_)
     {
@@ -370,6 +474,20 @@ namespace rra_local_planner {
       drive_velocities.setBasis(matrix);
     }
 
-    return result_traj_;
+    ROS_INFO("NEW TRAJECTORY GENERATED - Amory");
+    ROS_INFO("xv: %f yv: %f", result_traj_.xv_, result_traj_.yv_);
+    ROS_INFO("Points Size: %d", result_traj_.getPointsSize());
+
+    double xx, yy, tt;
+
+    for (unsigned int i = 0; i < result_traj_.getPointsSize(); i++){
+      
+      result_traj_.getPoint(i, xx, yy, tt);
+      ROS_INFO("x: %f, y: %f, t: %f", xx, yy, tt);
+
+    }
+
+      return result_traj_;
   }
+
 };
