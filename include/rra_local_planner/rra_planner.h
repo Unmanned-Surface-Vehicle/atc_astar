@@ -40,7 +40,6 @@
 #include <vector>
 #include <Eigen/Core>
 
-
 #include <rra_local_planner/RRAPlannerConfig.h>
 
 //for creating a local cost grid
@@ -63,7 +62,8 @@
 
 #include <nav_msgs/Path.h>
 
-#include "../AStar/Astar.h"
+#include "../../include/AStar/Astar.h"
+// #include "../AStar/Astar.h"
 
 namespace rra_local_planner {
   /**
@@ -155,7 +155,7 @@ namespace rra_local_planner {
       /**
        * 
        */
-      // GridWithWeights* costmapToGrid(costmap_2d::Costmap2D *costmap){};
+      GridWithWeights* costmapToGrid(costmap_2d::Costmap2D *costmap);
 
     private:
 

@@ -291,7 +291,6 @@ namespace rra_local_planner {
     }
   }
 
-
   // /*
   //  * given the current state of the robot, find a good trajectory
   //  */
@@ -406,10 +405,39 @@ namespace rra_local_planner {
     //   std::cout << std::endl;
     // }
 
-    // GridWithWeights graph = costmapToGrid(planner_util_->getCostmap() );
-    // Posi start;
-    // start.x = global_pose.
-    // AStar_Search(graph, start, goal, came_from, cost_so_far);
+    GridWithWeights* graph = costmapToGrid( planner_util_->getCostmap() );
+
+    for (size_t j = 0; j < graph->width; j++)
+    {
+      for (size_t i = 0; i < graph->height; i++)
+      {
+        Posi auxPosi;
+        auxPosi.x = i;
+        auxPosi.x = j;
+        if (graph->passable( auxPosi ))
+        {
+          std::cout << '0';
+        } else
+        {
+          std::cout << '1';
+        }
+      }
+      std::cout << std::endl;
+    }
+
+    Posi start, goall;
+
+    start.x = global_pose.getOrigin().getX();
+    start.y = global_pose.getOrigin().getY();
+
+    goall.x = goal_pose.pose.position.x;
+    goall.y = goal_pose.pose.position.y;
+
+    std::unordered_map<Posi, Posi>    came_from;
+    std::unordered_map<Posi, double>  cost_so_far;
+
+    AStar::AStar a_star;
+    a_star.AStarSearch(*(graph), start, goall, came_from, cost_so_far);
 
     base_local_planner::Trajectory *test_traj = new base_local_planner::Trajectory(0, 0, 0, 0, 1);
 
@@ -452,26 +480,26 @@ namespace rra_local_planner {
       return result_traj_;
   }
 
-  // GridWithWeights* RRAPlanner::costmapToGrid(costmap_2d::Costmap2D *costmap){
+  GridWithWeights* RRAPlanner::costmapToGrid(costmap_2d::Costmap2D *costmap){
 
-  //   Posi auxPosi;
-  //   GridWithWeights grid(costmap->getSizeInCellsX(), costmap->getSizeInCellsY());
+    Posi auxPosi;
+    GridWithWeights *grid_p = new GridWithWeights(costmap->getSizeInCellsX(), costmap->getSizeInCellsY());
 
-  //   for (size_t j = 0; j < costmap->getSizeInCellsY(); j++)
-  //   {
-  //     for (size_t i = 0; i < costmap->getSizeInCellsX(); i++)
-  //     {
-  //       if ( costmap->getCost(i, j) != '0')
-  //       {
-  //         auxPosi.x = i;
-  //         auxPosi.y = j;
-  //         grid.forests.insert(auxPosi);
-  //       }
-  //     }
-  //   }
+    for (size_t j = 0; j < costmap->getSizeInCellsY(); j++)
+    {
+      for (size_t i = 0; i < costmap->getSizeInCellsX(); i++)
+      {
+        if ( costmap->getCost(i, j) != '0')
+        {
+          auxPosi.x = i;
+          auxPosi.y = j;
+          grid_p->forests.insert(auxPosi);
+        }
+      }
+    }
 
-  //   return &grid;
+    return grid_p;
 
-  // };
+  };
 
 };

@@ -43,7 +43,7 @@ catkin_package(
         roscpp
 )
 
-add_library(rra_local_planner src/rra_planner.cpp src/rra_planner_ros.cpp)
+add_library(rra_local_planner src/AStar/AStar.cpp src/rra_planner.cpp src/rra_planner_ros.cpp)
 add_dependencies(rra_local_planner ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(rra_local_planner ${catkin_LIBRARIES})
 
