@@ -390,75 +390,37 @@ namespace rra_local_planner {
     Eigen::Vector3f goal(goal_pose.pose.position.x, goal_pose.pose.position.y, tf::getYaw(goal_pose.pose.orientation));
     base_local_planner::LocalPlannerLimits limits = planner_util_->getCurrentLimits();
 
-    // prepare cost functions and generators for this run
-    generator_.initialise(pos,
-        vel,
-        goal,
-        &limits,
-        vsamples_);
-
     result_traj_.cost_ = -7;
-    // find best trajectory by sampling and scoring the samples
-    std::vector<base_local_planner::Trajectory> all_explored;
 
-    scored_sampling_planner_.findBestTrajectory(result_traj_, &all_explored);
+    // ROS_INFO("------ Publishing Costmap: costmap x cells amount: %d", planner_util_->getCostmap()->getSizeInCellsX());
+    // ROS_INFO("------ Publishing Costmap: costmap y cells amount: %d", planner_util_->getCostmap()->getSizeInCellsY());
+    // ROS_INFO("------ Publishing Costmap: costmap resolution: %f", planner_util_->getCostmap()->getResolution());
 
+    // for (unsigned int y = 0; y < planner_util_->getCostmap()->getSizeInCellsY(); y++)
+    // {
+    //   for (unsigned int x = 0; x < planner_util_->getCostmap()->getSizeInCellsX(); x++)
+    //   {
+    //     // std::cout << "(" << x << ", " << y << ") = " << planner_util_->getCostmap()->getCost(x, y);
+    //     std::cout << static_cast<unsigned>(planner_util_->getCostmap()->getCost(x, y));
+    //   }
+    //   std::cout << std::endl;
+    // }
 
-    
-    base_local_planner::Trajectory test_traj = (new base_local_planner::Trajectory());
-    test_traj->add();
+    // GridWithWeights graph = costmapToGrid(planner_util_->getCostmap() );
+    // Posi start;
+    // start.x = global_pose.
+    // AStar_Search(graph, start, goal, came_from, cost_so_far);
 
+    base_local_planner::Trajectory *test_traj = new base_local_planner::Trajectory(0, 0, 0, 0, 1);
 
-        traj.xv_ = best_traj.xv_;
-        traj.yv_ = best_traj.yv_;
-        traj.thetav_ = best_traj.thetav_;
-        traj.cost_ = best_traj_cost;
-        traj.resetPoints();
-        double px, py, pth;
-        for (unsigned int i = 0; i < best_traj.getPointsSize(); i++) {
-          best_traj.getPoint(i, px, py, pth);
-          traj.addPoint(px, py, pth);
-        }
+    test_traj->resetPoints();
+    double px, py, pth;
+    test_traj->addPoint(17.9, 1.9, 0);
+    test_traj->xv_ = 20;
+    test_traj->yv_ = 20;
+    test_traj->cost_ = 12;
 
-        
-    result_traj =
-        all_explored.push_back(result_traj);
-
-
-    if(publish_traj_pc_)
-    {
-        base_local_planner::MapGridCostPoint pt;
-        traj_cloud_->points.clear();
-        traj_cloud_->width = 0;
-        traj_cloud_->height = 0;
-        std_msgs::Header header;
-        pcl_conversions::fromPCL(traj_cloud_->header, header);
-        header.stamp = ros::Time::now();
-        traj_cloud_->header = pcl_conversions::toPCL(header);
-        for(std::vector<base_local_planner::Trajectory>::iterator t=all_explored.begin(); t != all_explored.end(); ++t)
-        {
-            if(t->cost_<0)
-                continue;
-            // Fill out the plan
-            for(unsigned int i = 0; i < t->getPointsSize(); ++i) {
-                double p_x, p_y, p_th;
-                t->getPoint(i, p_x, p_y, p_th);
-                pt.x=p_x;
-                pt.y=p_y;
-                pt.z=0;
-                pt.path_cost=p_th;
-                pt.total_cost=t->cost_;
-                traj_cloud_->push_back(pt);
-            }
-        }
-        traj_cloud_pub_.publish(*traj_cloud_);
-    }
-
-    // verbose publishing of point clouds
-    if (publish_cost_grid_pc_) {
-      //we'll publish the visualization of the costs to rviz before returning our best trajectory
-      map_viz_.publishCostCloud(planner_util_->getCostmap());
-    }
+    result_traj_ = *test_traj;
 
     // debrief stateful scoring functions
     oscillation_costs_.updateOscillationFlags(pos, &result_traj_, planner_util_->getCurrentLimits().min_trans_vel);
@@ -474,7 +436,7 @@ namespace rra_local_planner {
       drive_velocities.setBasis(matrix);
     }
 
-    ROS_INFO("NEW TRAJECTORY GENERATED - Amory");
+    ROS_INFO("NEW TRAJECTORY GENERATED - ---");
     ROS_INFO("xv: %f yv: %f", result_traj_.xv_, result_traj_.yv_);
     ROS_INFO("Points Size: %d", result_traj_.getPointsSize());
 
@@ -489,5 +451,27 @@ namespace rra_local_planner {
 
       return result_traj_;
   }
+
+  // GridWithWeights* RRAPlanner::costmapToGrid(costmap_2d::Costmap2D *costmap){
+
+  //   Posi auxPosi;
+  //   GridWithWeights grid(costmap->getSizeInCellsX(), costmap->getSizeInCellsY());
+
+  //   for (size_t j = 0; j < costmap->getSizeInCellsY(); j++)
+  //   {
+  //     for (size_t i = 0; i < costmap->getSizeInCellsX(); i++)
+  //     {
+  //       if ( costmap->getCost(i, j) != '0')
+  //       {
+  //         auxPosi.x = i;
+  //         auxPosi.y = j;
+  //         grid.forests.insert(auxPosi);
+  //       }
+  //     }
+  //   }
+
+  //   return &grid;
+
+  // };
 
 };

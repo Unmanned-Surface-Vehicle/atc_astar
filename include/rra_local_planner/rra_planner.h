@@ -63,6 +63,8 @@
 
 #include <nav_msgs/Path.h>
 
+#include "../AStar/Astar.h"
+
 namespace rra_local_planner {
   /**
    * @class RRAPlanner
@@ -149,6 +151,11 @@ namespace rra_local_planner {
        * sets new plan and resets state
        */
       bool setPlan(const std::vector<geometry_msgs::PoseStamped>& orig_global_plan);
+
+      /**
+       * 
+       */
+      // GridWithWeights* costmapToGrid(costmap_2d::Costmap2D *costmap){};
 
     private:
 
