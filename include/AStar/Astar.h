@@ -17,7 +17,8 @@ namespace AStar
                         Posi, 
                         std::unordered_map<Posi, Posi>&, 
                         std::unordered_map<Posi, double>&);
-      template <typename Posi>
+
+      // template <typename Posi>
       std::vector<Posi> reconstruct_path(Posi, Posi, std::unordered_map<Posi, Posi>);
 
     private:

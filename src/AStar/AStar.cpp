@@ -41,7 +41,7 @@ namespace AStar
     }
   }
 
-  template<typename Posi>
+  // template<typename Posi>
   std::vector<Posi> AStar::reconstruct_path(
     Posi start, Posi goal,
     std::unordered_map<Posi, Posi> came_from)

@@ -318,7 +318,7 @@ namespace rra_local_planner {
   //   result_traj_.cost_ = -7;
   //   // find best trajectory by sampling and scoring the samples
   //   std::vector<base_local_planner::Trajectory> all_explored;
-  //   scored_sampling_planner_.findBestTrajectory(result_traj_, &all_explored);
+    // scored_sampling_planner_.findBestTrajectory(result_traj_, &all_explored);
 
   //   if(publish_traj_pc_)
   //   {
@@ -407,24 +407,6 @@ namespace rra_local_planner {
 
     GridWithWeights* graph = costmapToGrid( planner_util_->getCostmap() );
 
-    for (size_t j = 0; j < graph->width; j++)
-    {
-      for (size_t i = 0; i < graph->height; i++)
-      {
-        Posi auxPosi;
-        auxPosi.x = i;
-        auxPosi.x = j;
-        if (graph->passable( auxPosi ))
-        {
-          std::cout << '0';
-        } else
-        {
-          std::cout << '1';
-        }
-      }
-      std::cout << std::endl;
-    }
-
     Posi start, goall;
 
     start.x = global_pose.getOrigin().getX();
@@ -433,13 +415,29 @@ namespace rra_local_planner {
     goall.x = goal_pose.pose.position.x;
     goall.y = goal_pose.pose.position.y;
 
-    std::unordered_map<Posi, Posi>    came_from;
-    std::unordered_map<Posi, double>  cost_so_far;
+    std::unordered_map<Posi, Posi> came_from;
+    std::unordered_map<Posi, double> cost_so_far;
 
     AStar::AStar a_star;
     a_star.AStarSearch(*(graph), start, goall, came_from, cost_so_far);
 
+    std::vector<Posi> path = a_star.reconstruct_path(start, goall, came_from);
+
     base_local_planner::Trajectory *test_traj = new base_local_planner::Trajectory(0, 0, 0, 0, 1);
+
+    for (auto i = path.begin(); i != path.end(); ++i){
+      // std::cout << "(" << (*i).x << ", " << (*i).y << ")" << std::endl;
+      test_traj->addPoint((*i).x, (*i).y, global_pose.getOrigin().getZ());
+    }
+
+    double xx, yy, zz;
+    for (int i = 0; i < test_traj->getPointsSize(); i++)
+    {
+      test_traj->getPoint(i, xx, yy, zz);
+      std::cout << "(" << xx << ", " << yy << ")->";
+    }
+
+    std::cout << std::endl;
 
     test_traj->resetPoints();
     double px, py, pth;
@@ -454,7 +452,8 @@ namespace rra_local_planner {
     oscillation_costs_.updateOscillationFlags(pos, &result_traj_, planner_util_->getCurrentLimits().min_trans_vel);
 
     //if we don't have a legal trajectory, we'll just command zero
-    if (result_traj_.cost_ < 0) {
+    if (result_traj_.cost_ < 0)
+    {
       drive_velocities.setIdentity();
     } else {
       tf::Vector3 start(result_traj_.xv_, result_traj_.yv_, 0);
@@ -464,16 +463,14 @@ namespace rra_local_planner {
       drive_velocities.setBasis(matrix);
     }
 
-    ROS_INFO("NEW TRAJECTORY GENERATED - ---");
-    ROS_INFO("xv: %f yv: %f", result_traj_.xv_, result_traj_.yv_);
-    ROS_INFO("Points Size: %d", result_traj_.getPointsSize());
-
-    double xx, yy, tt;
+    // ROS_INFO("NEW TRAJECTORY GENERATED - ---");
+    // ROS_INFO("xv: %f yv: %f", result_traj_.xv_, result_traj_.yv_);
+    // ROS_INFO("Points Size: %d", result_traj_.getPointsSize());
 
     for (unsigned int i = 0; i < result_traj_.getPointsSize(); i++){
       
-      result_traj_.getPoint(i, xx, yy, tt);
-      ROS_INFO("x: %f, y: %f, t: %f", xx, yy, tt);
+      result_traj_.getPoint(i, xx, yy, zz);
+      // ROS_INFO("x: %f, y: %f, t: %f", xx, yy, zz);
 
     }
 
@@ -489,11 +486,12 @@ namespace rra_local_planner {
     {
       for (size_t i = 0; i < costmap->getSizeInCellsX(); i++)
       {
-        if ( costmap->getCost(i, j) != '0')
+        if ( static_cast<int>(costmap->getCost(i, j)) == 254)
         {
           auxPosi.x = i;
           auxPosi.y = j;
-          grid_p->forests.insert(auxPosi);
+          grid_p->walls.insert(auxPosi);
+          // std::cout << "INSERTED AS WALL" << std::endl;
         }
       }
     }
