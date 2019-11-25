@@ -410,10 +410,12 @@ namespace rra_local_planner {
     Posi start, goall;
 
     start.x = global_pose.getOrigin().getX();
-    start.y = global_pose.getOrigin().getY();
+    start.y = global_pose.getOrigin().getY();    
 
     goall.x = goal_pose.pose.position.x;
     goall.y = goal_pose.pose.position.y;
+
+    ROS_INFO("\ns.x: %d s.y: %d \ng.x: %d g.y: %d", start.x, start.y, goall.x, goall.y);
 
     std::unordered_map<Posi, Posi> came_from;
     std::unordered_map<Posi, double> cost_so_far;
@@ -423,7 +425,7 @@ namespace rra_local_planner {
 
     std::vector<Posi> path = a_star.reconstruct_path(start, goall, came_from);
 
-    base_local_planner::Trajectory *test_traj = new base_local_planner::Trajectory(0, 0, 0, 0, 1);
+    base_local_planner::Trajectory *test_traj = new base_local_planner::Trajectory();
 
     for (auto i = path.begin(); i != path.end(); ++i){
       // std::cout << "(" << (*i).x << ", " << (*i).y << ")" << std::endl;
