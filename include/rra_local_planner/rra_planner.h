@@ -112,7 +112,8 @@ namespace rra_local_planner {
       base_local_planner::Trajectory findBestPath(
           tf::Stamped<tf::Pose> global_pose,
           tf::Stamped<tf::Pose> global_vel,
-          tf::Stamped<tf::Pose>& drive_velocities);
+          tf::Stamped<tf::Pose>& drive_velocities, 
+          geometry_msgs::Twist& cmd_vell);
 
       /**
        * @brief  Update the cost functions before planning

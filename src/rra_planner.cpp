@@ -53,6 +53,13 @@
 #define PI 3.14159265
 
 namespace rra_local_planner {
+
+  double euclidian_distance (Pos pos, double x, double y);
+  double linear_vel         (Pos pos, double x, double y, double constt = 1.5);
+  double angular_vel        (Pos pos, double x, double y, double constt = 6);
+  double steering_angle     (Pos pos, double x, double y);
+
+
   void RRAPlanner::reconfigure(RRAPlannerConfig &config)
   {
 
@@ -382,7 +389,8 @@ namespace rra_local_planner {
   base_local_planner::Trajectory RRAPlanner::findBestPath(
       tf::Stamped<tf::Pose> global_pose,
       tf::Stamped<tf::Pose> global_vel,
-      tf::Stamped<tf::Pose>& drive_velocities) {
+      tf::Stamped<tf::Pose>& drive_velocities,
+      geometry_msgs::Twist& cmd_vell) {
 
     //make sure that our configuration doesn't change mid-run
     boost::mutex::scoped_lock l(configuration_mutex_);
@@ -436,25 +444,41 @@ namespace rra_local_planner {
       drive_velocities.setBasis(matrix);
     }
 
-    // // if robot's current angle != desired angle, rotate
-    // if ( abs(tf::getYaw(global_pose.getRotation()) - desired_angle) < 2){
-    //   ROS_INFO("Trying to rotate");
-      
-    //   tf::Quaternion q = tf::createQuaternionFromYaw(desired_angle);
+    double distance_tolerance = 2;
+    if (euclidian_distance((*i), global_pose.getOrigin().getX(), global_pose.getOrigin().getY()) >= distance_tolerance)
+    {
+      if ( abs(global_pose.getOrigin().getZ() - desired_angle) > 2)
+      {
+        cmd_vell.angular.x = 0;
+        cmd_vell.angular.y = 0;
+        cmd_vell.angular.z = angular_vel( (*i), global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), 6);
+      }else{
+        cmd_vell.linear.x = linear_vel( (*i), global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), 1.5);
+        cmd_vell.linear.y = 0;
+        cmd_vell.linear.z = 0;
+      }
 
-    //   drive_velocities.pose.orientation.x = q[0];
-    //   drive_velocities.pose.orientation.y = q[1];
-    //   drive_velocities.pose.orientation.z = q[2];
-    //   drive_velocities.pose.orientation.w = q[3];
-    // }
-    // else{
-    //   ROS_INFO("Trying to go straight");
-    //   drive_velocities.setOrigin(tf::Vector3((*i).x, (*i).y, 0));
-    // }
+    }   
 
     return result_traj_;
   }
 
+  double euclidian_distance(Pos pos, double x, double y){
+    return sqrt(  pow((pos.x - x), 2) + 
+                  pow((pos.y - y), 2));
+  }
+
+  double linear_vel(Pos pos, double x, double y, double constt){
+    return constt * euclidian_distance(pos, x, y);
+  }
+
+  double angular_vel(Pos pos, double x, double y, double constt){
+    return constt * steering_angle(pos, x, y) - pos.th;
+  }
+
+  double steering_angle(Pos pos, double x, double y){
+    return atan2(pos.x - x, pos.y - y);
+  }
 
   //   base_local_planner::Trajectory *test_traj = new base_local_planner::Trajectory();
   //   for (auto i = path.begin(); i != path.end(); ++i){

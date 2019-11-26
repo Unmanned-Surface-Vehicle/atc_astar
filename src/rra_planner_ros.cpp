@@ -263,23 +263,29 @@ namespace rra_local_planner {
 tf::Stamped<tf::Pose> robot_vel;
 odom_helper_.getRobotVel(robot_vel);
 
-    // call with updated footprint
-    base_local_planner::Trajectory path = dp_->findBestPath(global_pose, robot_vel, drive_cmds);
-    //ROS_ERROR("Best: %.2f, %.2f, %.2f, %.2f", path.xv_, path.yv_, path.thetav_, path.cost_);
+geometry_msgs::Twist cmd_vell;
+// call with updated footprint
+base_local_planner::Trajectory path = dp_->findBestPath(global_pose, robot_vel, drive_cmds, cmd_vell);
+//ROS_ERROR("Best: %.2f, %.2f, %.2f, %.2f", path.xv_, path.yv_, path.thetav_, path.cost_);
 
-    //pass along drive commands
-    cmd_vel.linear.x  = drive_cmds.getOrigin().getX();
-    cmd_vel.linear.y  = drive_cmds.getOrigin().getY();
-    cmd_vel.angular.z = tf::getYaw(drive_cmds.getRotation());
+//pass along drive commands
+// cmd_vel.linear.x = drive_cmds.getOrigin().getX();
+// cmd_vel.linear.y = drive_cmds.getOrigin().getY();
+// cmd_vel.angular.z = tf::getYaw(drive_cmds.getRotation());
 
-    //if we cannot move... tell someone
-    std::vector<geometry_msgs::PoseStamped> local_plan;
-    if(path.cost_ < 0) {
-      ROS_DEBUG_NAMED("rra_local_planner",
-          "The rra local planner failed to find a valid plan, cost functions discarded all candidates. This can mean there is an obstacle too close to the robot.");
-      local_plan.clear();
-      publishLocalPlan(local_plan);
-      return false;
+cmd_vel.linear.x  = cmd_vell.linear.x;
+cmd_vel.linear.y  = cmd_vell.linear.y;
+cmd_vel.angular.z = cmd_vell.angular.z;
+
+//if we cannot move... tell someone
+std::vector<geometry_msgs::PoseStamped> local_plan;
+if (path.cost_ < 0)
+{
+  ROS_DEBUG_NAMED("rra_local_planner",
+                  "The rra local planner failed to find a valid plan, cost functions discarded all candidates. This can mean there is an obstacle too close to the robot.");
+  local_plan.clear();
+  publishLocalPlan(local_plan);
+  return false;
     }
 
     ROS_DEBUG_NAMED("rra_local_planner", "A valid velocity command of (%.2f, %.2f, %.2f) was found for this cycle.",
