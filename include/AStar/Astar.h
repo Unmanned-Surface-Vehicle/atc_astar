@@ -1,7 +1,7 @@
 #ifndef ASTAR_H
 #define ASTAR_H
 
-// #include "../Posi/Posi.hpp"
+// #include "../Pos/Pos.hpp"
 #include "../GridWithWeights/GridWithWeights.hpp"
 #include "../PriorityQueue/PriorityQueue.hpp"
 namespace AStar
@@ -13,13 +13,13 @@ namespace AStar
       ~AStar(){};
 
       void AStarSearch( GridWithWeights, 
-                        Posi, 
-                        Posi, 
-                        std::unordered_map<Posi, Posi>&, 
-                        std::unordered_map<Posi, double>&);
+                        Pos, 
+                        Pos, 
+                        std::unordered_map<Pos, Pos>&, 
+                        std::unordered_map<Pos, double>&);
 
-      // template <typename Posi>
-      std::vector<Posi> reconstruct_path(Posi, Posi, std::unordered_map<Posi, Posi>);
+      // template <typename Pos>
+      std::vector<Pos> reconstruct_path(Pos, Pos, std::unordered_map<Pos, Pos>);
 
     private:
   };

@@ -7,11 +7,11 @@
 #include <iostream>         //  std::cout std::left
 #include <iomanip>          //  std::setw (draw_grid)
 
-#include "../Posi/Posi.hpp"
+#include "../Pos/Pos.hpp"
 
 // Possible moviment's directions
 // static std::array<Pos, 4> DIRS = {Pos{1, 0}, Pos{0, -1}, Pos{-1, 0}, Pos{0, 1}};
-static std::array<Posi, 8> DIRS = {Posi{0, 1}, Posi{1, 1}, Posi{1, 0}, Posi{1, -1}, Posi{0, -1}, Posi{-1, -1}, Posi{-1, 0}, Posi{-1, -1}};
+static std::array<Pos, 8> DIRS = {Pos{0, 1}, Pos{1, 1}, Pos{1, 0}, Pos{1, -1}, Pos{0, -1}, Pos{-1, -1}, Pos{-1, 0}, Pos{-1, -1}};
 
 /*
 *   Squared grid:
@@ -21,24 +21,24 @@ static std::array<Posi, 8> DIRS = {Posi{0, 1}, Posi{1, 1}, Posi{1, 0}, Posi{1, -
 struct SquareGrid {
     
     int width, height;
-    std::unordered_set<Posi> walls;
+    std::unordered_set<Pos> walls;
 
     SquareGrid(int width_, int height_) : width(width_), height(height_) {}
 
-    bool in_bounds(Posi id) const {
+    bool in_bounds(Pos id) const {
         return 0 <= id.x && id.x < width
             && 0 <= id.y && id.y < height;
     }
 
-    bool passable(Posi id) const {
+    bool passable(Pos id) const {
         return walls.find(id) == walls.end();
     }
 
-    std::vector<Posi> Neighbors(Posi id) const {
-        std::vector<Posi> results;
+    std::vector<Pos> Neighbors(Pos id) const {
+        std::vector<Pos> results;
 
-        for (Posi dir : DIRS) {
-            Posi next{id.x + dir.x, id.y + dir.y};
+        for (Pos dir : DIRS) {
+            Pos next{id.x + dir.x, id.y + dir.y};
             if (in_bounds(next) && passable(next)) {
                 results.push_back(next);
             }
@@ -58,17 +58,17 @@ struct SquareGrid {
 // arrows that point to the parent location, or pass in a path vector
 // if you want to draw the path.
 inline void draw_grid(const SquareGrid& grid, int field_width,
-               std::unordered_map<Posi, double>* distances=nullptr,
-               std::unordered_map<Posi, Posi>* point_to=nullptr,
-               std::vector<Posi>* path=nullptr) {
+               std::unordered_map<Pos, double>* distances=nullptr,
+               std::unordered_map<Pos, Pos>* point_to=nullptr,
+               std::vector<Pos>* path=nullptr) {
   for (int y = 0; y != grid.height; ++y) {
     for (int x = 0; x != grid.width; ++x) {
-      Posi id {x, y};
+      Pos id {x, y};
       std::cout << std::left << std::setw(field_width);
       if (grid.walls.find(id) != grid.walls.end()) {
         std::cout << std::string(field_width, '#');
       } else if (point_to != nullptr && point_to->count(id)) {
-        Posi next = (*point_to)[id];
+        Pos next = (*point_to)[id];
         if (next.x == x + 1) { std::cout << "> "; }
         else if (next.x == x - 1) { std::cout << "< "; }
         else if (next.y == y + 1) { std::cout << "v "; }
@@ -89,7 +89,7 @@ inline void draw_grid(const SquareGrid& grid, int field_width,
 inline void add_rect(SquareGrid& grid, int x1, int y1, int x2, int y2) {
   for (int x = x1; x < x2; ++x) {
     for (int y = y1; y < y2; ++y) {
-      grid.walls.insert(Posi{x, y});
+      grid.walls.insert(Pos{x, y});
     }
   }
 }

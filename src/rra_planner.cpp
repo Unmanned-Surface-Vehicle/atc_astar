@@ -48,6 +48,10 @@
 
 #include <pcl_conversions/pcl_conversions.h>
 
+// #include <math.h>       /* atan */
+
+#define PI 3.14159265
+
 namespace rra_local_planner {
   void RRAPlanner::reconfigure(RRAPlannerConfig &config)
   {
@@ -340,7 +344,7 @@ namespace rra_local_planner {
   //               t->getPoint(i, p_x, p_y, p_th);
   //               pt.x=p_x;
   //               pt.y=p_y;
-  //               pt.z=0;
+  //               pt.z=0;setRotation
   //               pt.path_cost=p_th;
   //               pt.total_cost=t->cost_;
   //               traj_cloud_->push_back(pt);
@@ -391,97 +395,123 @@ namespace rra_local_planner {
 
     result_traj_.cost_ = -7;
 
-    // ROS_INFO("------ Publishing Costmap: costmap x cells amount: %d", planner_util_->getCostmap()->getSizeInCellsX());
-    // ROS_INFO("------ Publishing Costmap: costmap y cells amount: %d", planner_util_->getCostmap()->getSizeInCellsY());
-    // ROS_INFO("------ Publishing Costmap: costmap resolution: %f", planner_util_->getCostmap()->getResolution());
-
-    // for (unsigned int y = 0; y < planner_util_->getCostmap()->getSizeInCellsY(); y++)
-    // {
-    //   for (unsigned int x = 0; x < planner_util_->getCostmap()->getSizeInCellsX(); x++)
-    //   {
-    //     // std::cout << "(" << x << ", " << y << ") = " << planner_util_->getCostmap()->getCost(x, y);
-    //     std::cout << static_cast<unsigned>(planner_util_->getCostmap()->getCost(x, y));
-    //   }
-    //   std::cout << std::endl;
-    // }
-
+    // Converts Costmap to graph to be used in the A* method
     GridWithWeights* graph = costmapToGrid( planner_util_->getCostmap() );
 
-    Posi start, goall;
-
-    start.x = global_pose.getOrigin().getX();
-    start.y = global_pose.getOrigin().getY();    
-
+    // robot's start and goal to be used in the A* method
+    Pos startt, goall;
+    startt.x = global_pose.getOrigin().getX();
+    startt.y = global_pose.getOrigin().getY();
+    startt.th = global_pose.getOrigin().getZ();
     goall.x = goal_pose.pose.position.x;
     goall.y = goal_pose.pose.position.y;
+    ROS_INFO("\ns.x: %d s.y: %d \ng.x: %d g.y: %d", startt.x, startt.y, goall.x, goall.y);
 
-    ROS_INFO("\ns.x: %d s.y: %d \ng.x: %d g.y: %d", start.x, start.y, goall.x, goall.y);
+    // Creates data structures to me populated in the A*
+    std::unordered_map<Pos, Pos> came_from;                                     // Path
+    std::unordered_map<Pos, double> cost_so_far;                                // Just to be used inside A*
 
-    std::unordered_map<Posi, Posi> came_from;
-    std::unordered_map<Posi, double> cost_so_far;
+    // A* 
+    AStar::AStar a_star;                                                        // A* handler
+    a_star.AStarSearch(*(graph), startt, goall, came_from, cost_so_far);        // A* method run
+    std::vector<Pos> path = a_star.reconstruct_path(startt, goall, came_from);  // Path arrangment
+    result_traj_.cost_ = 12;
 
-    AStar::AStar a_star;
-    a_star.AStarSearch(*(graph), start, goall, came_from, cost_so_far);
-
-    std::vector<Posi> path = a_star.reconstruct_path(start, goall, came_from);
-
-    base_local_planner::Trajectory *test_traj = new base_local_planner::Trajectory();
-
-    for (auto i = path.begin(); i != path.end(); ++i){
-      // std::cout << "(" << (*i).x << ", " << (*i).y << ")" << std::endl;
-      test_traj->addPoint((*i).x, (*i).y, global_pose.getOrigin().getZ());
-    }
-
-    double xx, yy, zz;
-    for (int i = 0; i < test_traj->getPointsSize(); i++)
-    {
-      test_traj->getPoint(i, xx, yy, zz);
-      std::cout << "(" << xx << ", " << yy << ")->";
-    }
-
-    std::cout << std::endl;
-
-    test_traj->resetPoints();
-    double px, py, pth;
-    test_traj->addPoint(17.9, 1.9, 0);
-    test_traj->xv_ = 20;
-    test_traj->yv_ = 20;
-    test_traj->cost_ = 12;
-
-    result_traj_ = *test_traj;
-
-    // debrief stateful scoring functions
-    oscillation_costs_.updateOscillationFlags(pos, &result_traj_, planner_util_->getCurrentLimits().min_trans_vel);
+    // calculates desired angle
+    auto i = path.begin();
+    // double desired_angle = atan2((*i).x - startt.x, (*i).y - startt.y) * 180 / PI; // degrees
+    double desired_angle = atan2((*i).x - startt.x, (*i).y - startt.y) * 180 / PI; //rad
 
     //if we don't have a legal trajectory, we'll just command zero
-    if (result_traj_.cost_ < 0)
-    {
+    if (result_traj_.cost_ < 0) {
       drive_velocities.setIdentity();
     } else {
-      tf::Vector3 start(result_traj_.xv_, result_traj_.yv_, 0);
+      // start with V=Vo+at, t == 1
+      tf::Vector3 start( (  global_vel.getOrigin().getX() + 5*planner_util_->getCurrentLimits().acc_lim_x), 
+                         (  global_vel.getOrigin().getY() + 5*planner_util_->getCurrentLimits().acc_lim_y), 
+                         0);
       drive_velocities.setOrigin(start);
       tf::Matrix3x3 matrix;
-      matrix.setRotation(tf::createQuaternionFromYaw(result_traj_.thetav_));
+      matrix.setRotation(tf::createQuaternionFromYaw(desired_angle));
       drive_velocities.setBasis(matrix);
     }
 
-    // ROS_INFO("NEW TRAJECTORY GENERATED - ---");
-    // ROS_INFO("xv: %f yv: %f", result_traj_.xv_, result_traj_.yv_);
-    // ROS_INFO("Points Size: %d", result_traj_.getPointsSize());
-
-    for (unsigned int i = 0; i < result_traj_.getPointsSize(); i++){
+    // // if robot's current angle != desired angle, rotate
+    // if ( abs(tf::getYaw(global_pose.getRotation()) - desired_angle) < 2){
+    //   ROS_INFO("Trying to rotate");
       
-      result_traj_.getPoint(i, xx, yy, zz);
-      // ROS_INFO("x: %f, y: %f, t: %f", xx, yy, zz);
+    //   tf::Quaternion q = tf::createQuaternionFromYaw(desired_angle);
 
-    }
+    //   drive_velocities.pose.orientation.x = q[0];
+    //   drive_velocities.pose.orientation.y = q[1];
+    //   drive_velocities.pose.orientation.z = q[2];
+    //   drive_velocities.pose.orientation.w = q[3];
+    // }
+    // else{
+    //   ROS_INFO("Trying to go straight");
+    //   drive_velocities.setOrigin(tf::Vector3((*i).x, (*i).y, 0));
+    // }
 
-      return result_traj_;
+    return result_traj_;
   }
+
+
+  //   base_local_planner::Trajectory *test_traj = new base_local_planner::Trajectory();
+  //   for (auto i = path.begin(); i != path.end(); ++i){
+  //     // std::cout << "(" << (*i).x << ", " << (*i).y << ")" << std::endl;
+  //     test_traj->addPoint((*i).x, (*i).y, global_pose.getOrigin().getZ());
+  //   }
+
+  //   double xx, yy, zz;
+  //   for (int i = 0; i < test_traj->getPointsSize(); i++)
+  //   {
+  //     test_traj->getPoint(i, xx, yy, zz);
+  //     std::cout << "(" << xx << ", " << yy << ")->";
+  //   }
+
+  //   std::cout << std::endl;
+
+  //   test_traj->getPoint(0, xx, yy, zz); // gets closer point
+  //   test_traj->resetPoints();
+  //   test_traj->xv_ = xx;
+  //   test_traj->yv_ = yy;
+  //   test_traj->cost_ = 12;
+
+  //   result_traj_ = *test_traj;
+
+  //   // debrief stateful scoring functions
+  //   oscillation_costs_.updateOscillationFlags(pos, &result_traj_, planner_util_->getCurrentLimits().min_trans_vel);
+
+  //   // cmd_vel assemble
+  //   // angular velocity
+  //   // linear velocity
+
+  //   ROS_INFO("Next X: %f, Y: %f, Th: %f", xx, yy, zz);
+
+  //   Pos auxPos;
+  //   auxPos.x = xx;
+  //   auxPos.y = yy;
+  //   auxPos.th = zz;
+
+  //   double result = atan2(auxPos.x - startt.x, auxPos.y - startt.y) * 180 / PI;
+
+  //   ROS_INFO("Angle: %f", result);
+
+  //   // drive_velocities (cmd_vel) construction
+  //   tf::Vector3 start(auxPos.x, auxPos.y, 0);
+  //   drive_velocities.setOrigin(start);
+  //   tf::Matrix3x3 matrix;
+  //   matrix.setRotation(tf::createQuaternionFromYaw(result));
+  //   drive_velocities.setBasis(matrix);
+
+  //   ROS_INFO("Drive velocities set");
+
+  //   return result_traj_;
+  // }
 
   GridWithWeights* RRAPlanner::costmapToGrid(costmap_2d::Costmap2D *costmap){
 
-    Posi auxPosi;
+    Pos auxPosi;
     GridWithWeights *grid_p = new GridWithWeights(costmap->getSizeInCellsX(), costmap->getSizeInCellsY());
 
     for (size_t j = 0; j < costmap->getSizeInCellsY(); j++)
