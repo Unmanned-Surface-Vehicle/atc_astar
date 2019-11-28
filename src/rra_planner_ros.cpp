@@ -264,6 +264,7 @@ tf::Stamped<tf::Pose> robot_vel;
 odom_helper_.getRobotVel(robot_vel);
 
 geometry_msgs::Twist cmd_vell;
+
 // call with updated footprint
 base_local_planner::Trajectory path = dp_->findBestPath(global_pose, robot_vel, drive_cmds, cmd_vell);
 //ROS_ERROR("Best: %.2f, %.2f, %.2f, %.2f", path.xv_, path.yv_, path.thetav_, path.cost_);
