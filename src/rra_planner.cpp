@@ -306,87 +306,6 @@ namespace rra_local_planner {
     }
   }
 
-  // /*
-  //  * given the current state of the robot, find a good trajectory
-  //  */
-  // base_local_planner::Trajectory RRAPlanner::findBestPath(
-  //     tf::Stamped<tf::Pose> global_pose,
-  //     tf::Stamped<tf::Pose> global_vel,
-  //     tf::Stamped<tf::Pose>& drive_velocities) {
-
-  //   //make sure that our configuration doesn't change mid-run
-  //   boost::mutex::scoped_lock l(configuration_mutex_);
-
-  //   Eigen::Vector3f pos(global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), tf::getYaw(global_pose.getRotation()));
-  //   Eigen::Vector3f vel(global_vel.getOrigin().getX(), global_vel.getOrigin().getY(), tf::getYaw(global_vel.getRotation()));
-  //   geometry_msgs::PoseStamped goal_pose = global_plan_.back();
-  //   Eigen::Vector3f goal(goal_pose.pose.position.x, goal_pose.pose.position.y, tf::getYaw(goal_pose.pose.orientation));
-  //   base_local_planner::LocalPlannerLimits limits = planner_util_->getCurrentLimits();
-
-  //   // prepare cost functions and generators for this run
-  //   generator_.initialise(pos,
-  //       vel,
-  //       goal,
-  //       &limits,
-  //       vsamples_);
-
-  //   result_traj_.cost_ = -7;
-  //   // find best trajectory by sampling and scoring the samples
-  //   std::vector<base_local_planner::Trajectory> all_explored;
-  //   scored_sampling_planner_.findBestTrajectory(result_traj_, &all_explored);
-
-  //   if(publish_traj_pc_)
-  //   {
-  //       base_local_planner::MapGridCostPoint pt;
-  //       traj_cloud_->points.clear();
-  //       traj_cloud_->width = 0;
-  //       traj_cloud_->height = 0;
-  //       std_msgs::Header header;
-  //       pcl_conversions::fromPCL(traj_cloud_->header, header);
-  //       header.stamp = ros::Time::now();
-  //       traj_cloud_->header = pcl_conversions::toPCL(header);
-  //       for(std::vector<base_local_planner::Trajectory>::iterator t=all_explored.begin(); t != all_explored.end(); ++t)
-  //       {
-  //           if(t->cost_<0)
-  //               continue;
-  //           // Fill out the plan
-  //           for(unsigned int i = 0; i < t->getPointsSize(); ++i) {
-  //               double p_x, p_y, p_th;
-  //               t->getPoint(i, p_x, p_y, p_th);
-  //               pt.x=p_x;
-  //               pt.y=p_y;
-  //               pt.z=0;
-  //               pt.path_cost=p_th;
-  //               pt.total_cost=t->cost_;
-  //               traj_cloud_->push_back(pt);
-  //           }
-  //       }
-  //       traj_cloud_pub_.publish(*traj_cloud_);
-  //   }
-
-  //   // verbose publishing of point clouds
-  //   if (publish_cost_grid_pc_) {
-  //     //we'll publish the visualization of the costs to rviz before returning our best trajectory
-  //     map_viz_.publishCostCloud(planner_util_->getCostmap());
-  //   }
-
-  //   // debrief stateful scoring functions
-  //   oscillation_costs_.updateOscillationFlags(pos, &result_traj_, planner_util_->getCurrentLimits().min_trans_vel);
-
-  //   //if we don't have a legal trajectory, we'll just command zero
-  //   if (result_traj_.cost_ < 0) {
-  //     drive_velocities.setIdentity();
-  //   } else {
-  //     tf::Vector3 start(result_traj_.xv_, result_traj_.yv_, 0);
-  //     drive_velocities.setOrigin(start);
-  //     tf::Matrix3x3 matrix;
-  //     matrix.setRotation(tf::createQuaternionFromYaw(result_traj_.thetav_));
-  //     drive_velocities.setBasis(matrix);
-  //   }
-
-  //   return result_traj_;
-  // }
-
   /*
    * given the current state of the robot, find a good trajectory
    */
@@ -411,90 +330,41 @@ namespace rra_local_planner {
     //   global_plan_.front().pose.position.x, 
     //   global_plan_.front().pose.position.y);
 
-    // prepare cost functions and generators for this run
-    generator_.initialise(pos,
-        vel,
-        goal,
-        &limits,
-        vsamples_);
+    // Converts Costmap to graph to be used in the A* method
+    GridWithWeights* graph = costmapToGrid( planner_util_->getCostmap() );
 
-    result_traj_.cost_ = -7;
-    // find best trajectory by sampling and scoring the samples
-    std::vector<base_local_planner::Trajectory> all_explored;
-    scored_sampling_planner_.findBestTrajectory(result_traj_, &all_explored);
+    // Creates data structures to me populated in the A*
+    std::unordered_map<Pos, Pos> came_from;                                   // Path
+    std::unordered_map<Pos, double> cost_so_far;                              // A*'s exploration phase util
 
-    if(publish_traj_pc_)
-    {
-        base_local_planner::MapGridCostPoint pt;
-        traj_cloud_->points.clear();
-        traj_cloud_->width = 0;
-        traj_cloud_->height = 0;
-        std_msgs::Header header;
-        pcl_conversions::fromPCL(traj_cloud_->header, header);
-        header.stamp = ros::Time::now();
-        traj_cloud_->header = pcl_conversions::toPCL(header);
-        for(std::vector<base_local_planner::Trajectory>::iterator t=all_explored.begin(); t != all_explored.end(); ++t)
-        {
-            if(t->cost_<0)
-                continue;
-            // Fill out the plan
-            for(unsigned int i = 0; i < t->getPointsSize(); ++i) {
-                double p_x, p_y, p_th;
-                t->getPoint(i, p_x, p_y, p_th);
-                pt.x=p_x;
-                pt.y=p_y;
-                pt.z=0;
-                pt.path_cost=p_th;
-                pt.total_cost=t->cost_;
-                traj_cloud_->push_back(pt);
-            }
-        }
-        traj_cloud_pub_.publish(*traj_cloud_);
-    }
+    // Gets closer global plan position
+    Pos astar_goal;
+    astar_goal.x = global_plan_.back().pose.position.x;
+    astar_goal.y = global_plan_.back().pose.position.y;
+    // Gets robot current position
+    Pos current_pos;
+    current_pos.x = global_pose.getOrigin().getX();
+    current_pos.y = global_pose.getOrigin().getY();
 
-    // verbose publishing of point clouds
-    if (publish_cost_grid_pc_) {
-      //we'll publish the visualization of the costs to rviz before returning our best trajectory
-      map_viz_.publishCostCloud(planner_util_->getCostmap());
-    }
-
-    // // Converts Costmap to graph to be used in the A* method
-    // GridWithWeights* graph = costmapToGrid( planner_util_->getCostmap() );
-
-    // // Creates data structures to me populated in the A*
-    // std::unordered_map<Pos, Pos> came_from;                                   // Path
-    // std::unordered_map<Pos, double> cost_so_far;                              // A*'s exploration phase util
-
-    // // Gets closer global plan position
-    // Pos astar_goal;
-    // astar_goal.x = global_plan_.back().pose.position.x;
-    // astar_goal.y = global_plan_.back().pose.position.y;
-    // // Gets robot current position
-    // Pos current_pos;
-    // current_pos.x = global_pose.getOrigin().getX();
-    // current_pos.y = global_pose.getOrigin().getY();
-
-    // // A* 
-    // AStar::AStar astar;                                                                 // A* handler
-    // astar.AStarSearch(*(graph), current_pos, astar_goal, came_from, cost_so_far);       // A* method execution
-    // std::vector<Pos> path = astar.reconstruct_path(current_pos, astar_goal, came_from); // Util for easier path use
-    // result_traj_.cost_ = 12;                                                            // Legacy behaviour maintence
+    // A* 
+    AStar::AStar astar;                                                                 // A* handler
+    astar.AStarSearch(*(graph), current_pos, astar_goal, came_from, cost_so_far);       // A* method execution
+    std::vector<Pos> path = astar.reconstruct_path(current_pos, astar_goal, came_from); // Util for easier path use
+    result_traj_.cost_ = 12;                                                            // Legacy behaviour maintence
 
     // debrief stateful scoring functions
-    oscillation_costs_.updateOscillationFlags(pos, &result_traj_, planner_util_->getCurrentLimits().min_trans_vel);
+    // oscillation_costs_.updateOscillationFlags(pos, &result_traj_, planner_util_->getCurrentLimits().min_trans_vel);
 
     //if we don't have a legal trajectory, we'll just command zero
     if (result_traj_.cost_ < 0) {
       drive_velocities.setIdentity();
     } else {
       Pos goal;
-      goal.x = global_plan_.back().pose.position.x;
-      goal.y = global_plan_.back().pose.position.y;
-      // goal.x = path[1].x;
-      // goal.y = path[1].y;
+      // goal.x = global_plan_.back().pose.position.x;
+      // goal.y = global_plan_.back().pose.position.y;
+      goal.x = path[1].x;
+      goal.y = path[1].y;
       tf::Vector3 start(linear_vel(goal, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), 0.1), 0, 0);
-      // tf::Vector3 start(result_traj_.xv_, result_traj_.yv_, 0);
-      // ROS_INFO("XV: %f, XY: %f", result_traj_.xv_, result_traj_.yv_);
       drive_velocities.setOrigin(start);
 
       tf::Matrix3x3 matrix;
