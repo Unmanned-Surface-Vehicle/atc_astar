@@ -665,11 +665,11 @@ namespace rra_local_planner {
   double angular_vel(Pos goal_pos, double self_x, double self_y, double self_th, double constt){
     return constt * (steering_angle(goal_pos, self_x, self_y) - self_th);
 
-    // double err = steering_angle(goal_pos, self_x, self_y) - self_th;
-    // double P = Kp * err;
-    // I += Ki * err;
+    double err = steering_angle(goal_pos, self_x, self_y) - self_th;
+    double P = Kp * err;
+    I += Ki * err;
 
-    // return P + I;yy
+    return P + I;
   }
 
   double steering_angle(Pos goal_pos, double self_x, double self_y){

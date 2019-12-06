@@ -177,78 +177,6 @@ namespace rra_local_planner {
 
 
 
-  // bool RRAPlannerROS::rraComputeVelocityCommands(tf::Stamped<tf::Pose> &global_pose, geometry_msgs::Twist& cmd_vel) {
-  //   // dynamic window sampling approach to get useful velocity commands
-  //   if(! isInitialized()){
-  //     ROS_ERROR("This planner has not been initialized, please call initialize() before using this planner");
-  //     return false;
-  //   }
-
-  //   tf::Stamped<tf::Pose> robot_vel;
-  //   odom_helper_.getRobotVel(robot_vel);
-
-  //   /* For timing uncomment
-  //   struct timeval start, end;
-  //   double start_t, end_t, t_diff;
-  //   gettimeofday(&start, NULL);
-  //   */
-
-  //   //compute what trajectory to drive along
-  //   tf::Stamped<tf::Pose> drive_cmds;
-  //   drive_cmds.frame_id_ = costmap_ros_->getBaseFrameID();
-
-  //   // call with updated footprint
-  //   base_local_planner::Trajectory path = dp_->findBestPath(global_pose, robot_vel, drive_cmds);
-  //   //ROS_ERROR("Best: %.2f, %.2f, %.2f, %.2f", path.xv_, path.yv_, path.thetav_, path.cost_);
-
-  //   /* For timing uncomment
-  //   gettimeofday(&end, NULL);
-  //   start_t = start.tv_sec + double(start.tv_usec) / 1e6;
-  //   end_t = end.tv_sec + double(end.tv_usec) / 1e6;
-  //   t_diff = end_t - start_t;
-  //   ROS_INFO("Cycle time: %.9f", t_diff);
-  //   */
-
-  //   //pass along drive commands
-  //   cmd_vel.linear.x = drive_cmds.getOrigin().getX();
-  //   cmd_vel.linear.y = drive_cmds.getOrigin().getY();
-  //   cmd_vel.angular.z = tf::getYaw(drive_cmds.getRotation());
-
-  //   //if we cannot move... tell someone
-  //   std::vector<geometry_msgs::PoseStamped> local_plan;
-  //   if(path.cost_ < 0) {
-  //     ROS_DEBUG_NAMED("rra_local_planner",
-  //         "The rra local planner failed to find a valid plan, cost functions discarded all candidates. This can mean there is an obstacle too close to the robot.");
-  //     local_plan.clear();
-  //     publishLocalPlan(local_plan);
-  //     return false;
-  //   }
-
-  //   ROS_DEBUG_NAMED("rra_local_planner", "A valid velocity command of (%.2f, %.2f, %.2f) was found for this cycle.",
-  //                   cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z);
-
-  //   // Fill out the local plan
-  //   for(unsigned int i = 0; i < path.getPointsSize(); ++i) {
-  //     double p_x, p_y, p_th;
-  //     path.getPoint(i, p_x, p_y, p_th);
-
-  //     tf::Stamped<tf::Pose> p =
-  //             tf::Stamped<tf::Pose>(tf::Pose(
-  //                     tf::createQuaternionFromYaw(p_th),
-  //                     tf::Point(p_x, p_y, 0.0)),
-  //                     ros::Time::now(),
-  //                     costmap_ros_->getGlobalFrameID());
-  //     geometry_msgs::PoseStamped pose;
-  //     tf::poseStampedTFToMsg(p, pose);
-  //     local_plan.push_back(pose);
-  //   }
-
-  //   //publish information to the visualizer
-
-  //   publishLocalPlan(local_plan);
-  //   return true;
-  // }
-
   bool RRAPlannerROS::rraComputeVelocityCommands(tf::Stamped<tf::Pose> &global_pose, geometry_msgs::Twist& cmd_vel) {
     // dynamic window sampling approach to get useful velocity commands
     if(! isInitialized()){
@@ -256,37 +184,44 @@ namespace rra_local_planner {
       return false;
     }
 
+    tf::Stamped<tf::Pose> robot_vel;
+    odom_helper_.getRobotVel(robot_vel);
+
+    /* For timing uncomment
+    struct timeval start, end;
+    double start_t, end_t, t_diff;
+    gettimeofday(&start, NULL);
+    */
+
     //compute what trajectory to drive along
     tf::Stamped<tf::Pose> drive_cmds;
     drive_cmds.frame_id_ = costmap_ros_->getBaseFrameID();
 
-tf::Stamped<tf::Pose> robot_vel;
-odom_helper_.getRobotVel(robot_vel);
+    // call with updated footprint
+    base_local_planner::Trajectory path = dp_->findBestPath(global_pose, robot_vel, drive_cmds);
+    //ROS_ERROR("Best: %.2f, %.2f, %.2f, %.2f", path.xv_, path.yv_, path.thetav_, path.cost_);
 
-geometry_msgs::Twist cmd_vell;
+    /* For timing uncomment
+    gettimeofday(&end, NULL);
+    start_t = start.tv_sec + double(start.tv_usec) / 1e6;
+    end_t = end.tv_sec + double(end.tv_usec) / 1e6;
+    t_diff = end_t - start_t;
+    ROS_INFO("Cycle time: %.9f", t_diff);
+    */
 
-// call with updated footprint
-base_local_planner::Trajectory path = dp_->findBestPath(global_pose, robot_vel, drive_cmds, cmd_vell);
-//ROS_ERROR("Best: %.2f, %.2f, %.2f, %.2f", path.xv_, path.yv_, path.thetav_, path.cost_);
+    //pass along drive commands
+    cmd_vel.linear.x = drive_cmds.getOrigin().getX();
+    cmd_vel.linear.y = drive_cmds.getOrigin().getY();
+    cmd_vel.angular.z = tf::getYaw(drive_cmds.getRotation());
 
-//pass along drive commands
-// cmd_vel.linear.x = drive_cmds.getOrigin().getX();
-// cmd_vel.linear.y = drive_cmds.getOrigin().getY();
-// cmd_vel.angular.z = tf::getYaw(drive_cmds.getRotation());
-
-cmd_vel.linear.x  = cmd_vell.linear.x;
-cmd_vel.linear.y  = cmd_vell.linear.y;
-cmd_vel.angular.z = cmd_vell.angular.z;
-
-//if we cannot move... tell someone
-std::vector<geometry_msgs::PoseStamped> local_plan;
-if (path.cost_ < 0)
-{
-  ROS_DEBUG_NAMED("rra_local_planner",
-                  "The rra local planner failed to find a valid plan, cost functions discarded all candidates. This can mean there is an obstacle too close to the robot.");
-  local_plan.clear();
-  publishLocalPlan(local_plan);
-  return false;
+    //if we cannot move... tell someone
+    std::vector<geometry_msgs::PoseStamped> local_plan;
+    if(path.cost_ < 0) {
+      ROS_DEBUG_NAMED("rra_local_planner",
+          "The rra local planner failed to find a valid plan, cost functions discarded all candidates. This can mean there is an obstacle too close to the robot.");
+      local_plan.clear();
+      publishLocalPlan(local_plan);
+      return false;
     }
 
     ROS_DEBUG_NAMED("rra_local_planner", "A valid velocity command of (%.2f, %.2f, %.2f) was found for this cycle.",
@@ -313,6 +248,71 @@ if (path.cost_ < 0)
     publishLocalPlan(local_plan);
     return true;
   }
+
+//   bool RRAPlannerROS::rraComputeVelocityCommands(tf::Stamped<tf::Pose> &global_pose, geometry_msgs::Twist& cmd_vel) {
+//     // dynamic window sampling approach to get useful velocity commands
+//     if(! isInitialized()){
+//       ROS_ERROR("This planner has not been initialized, please call initialize() before using this planner");
+//       return false;
+//     }
+
+//     //compute what trajectory to drive along
+//     tf::Stamped<tf::Pose> drive_cmds;
+//     drive_cmds.frame_id_ = costmap_ros_->getBaseFrameID();
+
+// tf::Stamped<tf::Pose> robot_vel;
+// odom_helper_.getRobotVel(robot_vel);
+
+// geometry_msgs::Twist cmd_vell;
+
+// // call with updated footprint
+// base_local_planner::Trajectory path = dp_->findBestPath(global_pose, robot_vel, drive_cmds, cmd_vell);
+// //ROS_ERROR("Best: %.2f, %.2f, %.2f, %.2f", path.xv_, path.yv_, path.thetav_, path.cost_);
+
+// //pass along drive commands
+// // cmd_vel.linear.x = drive_cmds.getOrigin().getX();
+// // cmd_vel.linear.y = drive_cmds.getOrigin().getY();
+// // cmd_vel.angular.z = tf::getYaw(drive_cmds.getRotation());
+
+// cmd_vel.linear.x  = cmd_vell.linear.x;
+// cmd_vel.linear.y  = cmd_vell.linear.y;
+// cmd_vel.angular.z = cmd_vell.angular.z;
+
+// //if we cannot move... tell someone
+// std::vector<geometry_msgs::PoseStamped> local_plan;
+// if (path.cost_ < 0)
+// {
+//   ROS_DEBUG_NAMED("rra_local_planner",
+//                   "The rra local planner failed to find a valid plan, cost functions discarded all candidates. This can mean there is an obstacle too close to the robot.");
+//   local_plan.clear();
+//   publishLocalPlan(local_plan);
+//   return false;
+//     }
+
+//     ROS_DEBUG_NAMED("rra_local_planner", "A valid velocity command of (%.2f, %.2f, %.2f) was found for this cycle.",
+//                     cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z);
+
+//     // Fill out the local plan
+//     for(unsigned int i = 0; i < path.getPointsSize(); ++i) {
+//       double p_x, p_y, p_th;
+//       path.getPoint(i, p_x, p_y, p_th);
+
+//       tf::Stamped<tf::Pose> p =
+//               tf::Stamped<tf::Pose>(tf::Pose(
+//                       tf::createQuaternionFromYaw(p_th),
+//                       tf::Point(p_x, p_y, 0.0)),
+//                       ros::Time::now(),
+//                       costmap_ros_->getGlobalFrameID());
+//       geometry_msgs::PoseStamped pose;
+//       tf::poseStampedTFToMsg(p, pose);
+//       local_plan.push_back(pose);
+//     }
+
+//     //publish information to the visualizer
+
+//     publishLocalPlan(local_plan);
+//     return true;
+//   }
 
 
 
