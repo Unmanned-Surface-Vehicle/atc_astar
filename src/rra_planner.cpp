@@ -404,12 +404,12 @@ namespace rra_local_planner {
     Eigen::Vector3f goal(goal_pose.pose.position.x, goal_pose.pose.position.y, tf::getYaw(goal_pose.pose.orientation));
     base_local_planner::LocalPlannerLimits limits = planner_util_->getCurrentLimits();
 
-    ROS_INFO("global_plan size: %d", global_plan_.size());
-    ROS_INFO("first: (%f, %f) last: (%f, %f))", 
-      global_plan_.back().pose.position.x, 
-      global_plan_.back().pose.position.y, 
-      global_plan_.front().pose.position.x, 
-      global_plan_.front().pose.position.y);
+    // ROS_INFO("global_plan size: %d", global_plan_.size());
+    // ROS_INFO("first: (%f, %f) last: (%f, %f))", 
+    //   global_plan_.back().pose.position.x, 
+    //   global_plan_.back().pose.position.y, 
+    //   global_plan_.front().pose.position.x, 
+    //   global_plan_.front().pose.position.y);
 
     // prepare cost functions and generators for this run
     generator_.initialise(pos,
@@ -458,6 +458,28 @@ namespace rra_local_planner {
       map_viz_.publishCostCloud(planner_util_->getCostmap());
     }
 
+    // // Converts Costmap to graph to be used in the A* method
+    // GridWithWeights* graph = costmapToGrid( planner_util_->getCostmap() );
+
+    // // Creates data structures to me populated in the A*
+    // std::unordered_map<Pos, Pos> came_from;                                   // Path
+    // std::unordered_map<Pos, double> cost_so_far;                              // A*'s exploration phase util
+
+    // // Gets closer global plan position
+    // Pos astar_goal;
+    // astar_goal.x = global_plan_.back().pose.position.x;
+    // astar_goal.y = global_plan_.back().pose.position.y;
+    // // Gets robot current position
+    // Pos current_pos;
+    // current_pos.x = global_pose.getOrigin().getX();
+    // current_pos.y = global_pose.getOrigin().getY();
+
+    // // A* 
+    // AStar::AStar astar;                                                                 // A* handler
+    // astar.AStarSearch(*(graph), current_pos, astar_goal, came_from, cost_so_far);       // A* method execution
+    // std::vector<Pos> path = astar.reconstruct_path(current_pos, astar_goal, came_from); // Util for easier path use
+    // result_traj_.cost_ = 12;                                                            // Legacy behaviour maintence
+
     // debrief stateful scoring functions
     oscillation_costs_.updateOscillationFlags(pos, &result_traj_, planner_util_->getCurrentLimits().min_trans_vel);
 
@@ -468,6 +490,8 @@ namespace rra_local_planner {
       Pos goal;
       goal.x = global_plan_.back().pose.position.x;
       goal.y = global_plan_.back().pose.position.y;
+      // goal.x = path[1].x;
+      // goal.y = path[1].y;
       tf::Vector3 start(linear_vel(goal, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), 0.1), 0, 0);
       // tf::Vector3 start(result_traj_.xv_, result_traj_.yv_, 0);
       // ROS_INFO("XV: %f, XY: %f", result_traj_.xv_, result_traj_.yv_);
@@ -596,9 +620,9 @@ namespace rra_local_planner {
   //   std::unordered_map<Pos, double> cost_so_far;                                // Just to be used inside A*
 
   //   // A* 
-  //   AStar::AStar a_star;                                                        // A* handler
-  //   a_star.AStarSearch(*(graph), startt, goall, came_from, cost_so_far);        // A* method run
-  //   std::vector<Pos> path = a_star.reconstruct_path(startt, goall, came_from);  // Path arrangment
+  //   AStar::AStar astar;                                                        // A* handler
+  //   astar.AStarSearch(*(graph), startt, goall, came_from, cost_so_far);        // A* method run
+  //   std::vector<Pos> path = astar.reconstruct_path(startt, goall, came_from);  // Path arrangment
   //   result_traj_.cost_ = 12;                                                    // Hard assigment for legacy behaviour
 
   //   ROS_INFO("Global Plan: ");
@@ -680,7 +704,7 @@ namespace rra_local_planner {
       angle = angle - 2 * PI;
     }
 
-    ROS_INFO("Wanted pos: (%f, %f)\nCurrent pos: (%f, %f)\nSteering Angle: %f", goal_pos.x, goal_pos.y, self_x, self_y, angle);
+    // ROS_INFO("Wanted pos: (%f, %f)\nCurrent pos: (%f, %f)\nSteering Angle: %f", goal_pos.x, goal_pos.y, self_x, self_y, angle);
 
     return angle;
     // return atan2((double) goal_pos.y, (double) goal_pos.x) - atan2((double) goal_pos.y, (double) goal_pos.x);

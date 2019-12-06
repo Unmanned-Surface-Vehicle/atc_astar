@@ -1,5 +1,5 @@
-#ifndef POSI_HPP
-#define POSI_HPP
+#ifndef POS_HPP
+#define POS_HPP
 
 #include<unordered_map>
 

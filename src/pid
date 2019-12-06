@@ -596,9 +596,9 @@ namespace rra_local_planner {
   //   std::unordered_map<Pos, double> cost_so_far;                                // Just to be used inside A*
 
   //   // A* 
-  //   AStar::AStar a_star;                                                        // A* handler
-  //   a_star.AStarSearch(*(graph), startt, goall, came_from, cost_so_far);        // A* method run
-  //   std::vector<Pos> path = a_star.reconstruct_path(startt, goall, came_from);  // Path arrangment
+  //   AStar::AStar astar;                                                        // A* handler
+  //   astar.AStarSearch(*(graph), startt, goall, came_from, cost_so_far);        // A* method run
+  //   std::vector<Pos> path = astar.reconstruct_path(startt, goall, came_from);  // Path arrangment
   //   result_traj_.cost_ = 12;                                                    // Hard assigment for legacy behaviour
 
   //   ROS_INFO("Global Plan: ");
