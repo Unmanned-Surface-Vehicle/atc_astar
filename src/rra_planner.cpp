@@ -320,7 +320,7 @@ namespace rra_local_planner {
     Eigen::Vector3f pos(global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), tf::getYaw(global_pose.getRotation()));
     Eigen::Vector3f vel(global_vel.getOrigin().getX(), global_vel.getOrigin().getY(), tf::getYaw(global_vel.getRotation()));
     geometry_msgs::PoseStamped goal_pose = global_plan_.back();
-    Eigen::Vector3f goal(goal_pose.pose.position.x, goal_pose.pose.position.y, tf::getYaw(goal_pose.pose.orientation));
+    // Eigen::Vector3f goal(goal_pose.pose.position.x, goal_pose.pose.position.y, tf::getYaw(goal_pose.pose.orientation));
     base_local_planner::LocalPlannerLimits limits = planner_util_->getCurrentLimits();
 
     // ROS_INFO("global_plan size: %d", global_plan_.size());
@@ -331,26 +331,52 @@ namespace rra_local_planner {
     //   global_plan_.front().pose.position.y);
 
     // Converts Costmap to graph to be used in the A* method
+    
     GridWithWeights* graph = costmapToGrid( planner_util_->getCostmap() );
 
-    // Creates data structures to me populated in the A*
-    std::unordered_map<Pos, Pos> came_from;                                   // Path
+    // Creates data structures to be populated in the A*
+    std::unordered_map<Pos, Pos>    came_from;                                // Path
     std::unordered_map<Pos, double> cost_so_far;                              // A*'s exploration phase util
 
     // Gets closer global plan position
     Pos astar_goal;
-    astar_goal.x = global_plan_.back().pose.position.x;
-    astar_goal.y = global_plan_.back().pose.position.y;
+    astar_goal.x = goal_pose.pose.position.x;
+    astar_goal.y = goal_pose.pose.position.y;
     // Gets robot current position
     Pos current_pos;
     current_pos.x = global_pose.getOrigin().getX();
     current_pos.y = global_pose.getOrigin().getY();
 
-    // A* 
-    AStar::AStar astar;                                                                 // A* handler
-    astar.AStarSearch(*(graph), current_pos, astar_goal, came_from, cost_so_far);       // A* method execution
-    std::vector<Pos> path = astar.reconstruct_path(current_pos, astar_goal, came_from); // Util for easier path use
-    result_traj_.cost_ = 12;                                                            // Legacy behaviour maintence
+    // A*
+    // ROS_INFO("A* goal:    (%f, %f)", (double) astar_goal.x, (double) astar_goal.y);
+    // ROS_INFO("Robot pos:  (%f, %f)", (double) current_pos.x, (double) current_pos.y);
+    // AStar::AStar astar;                                                                 // A* handler
+    // astar.AStarSearch(*(graph), current_pos, astar_goal, came_from, cost_so_far);       // A* method execution
+    // std::vector<Pos> path = astar.reconstruct_path(current_pos, astar_goal, came_from); // Util for easier path use
+
+    if (global_plan_.size() > 0)
+    {
+      result_traj_.cost_ = 12;
+    }else{
+      result_traj_.cost_ = -7;
+    }
+
+    // result_traj_.cost_ = 12;                                                            // Legacy behaviour maintence
+
+    // for (auto pos = path.begin(); pos != path.end(); pos++)
+    // {
+    //   // std::cout << "( " << pos->x << ", " << pos->y << ")->" << std::endl;
+    // }
+
+    // Populating result_traj_ for debugging propose
+    // result_traj_.resetPoints();
+    // for (auto p = path.begin(); p != path.end(); p++)
+    // {
+    //   Pos tempPos;
+    //   tempPos.x = p->x;
+    //   tempPos.y = p->y;
+    //   result_traj_.addPoint(p->x, p->y, steering_angle(tempPos, current_pos.x, current_pos.y));
+    // }
 
     // debrief stateful scoring functions
     // oscillation_costs_.updateOscillationFlags(pos, &result_traj_, planner_util_->getCurrentLimits().min_trans_vel);
@@ -360,10 +386,13 @@ namespace rra_local_planner {
       drive_velocities.setIdentity();
     } else {
       Pos goal;
-      // goal.x = global_plan_.back().pose.position.x;
-      // goal.y = global_plan_.back().pose.position.y;
-      goal.x = path[1].x;
-      goal.y = path[1].y;
+      goal.x = global_plan_.back().pose.position.x;
+      goal.y = global_plan_.back().pose.position.y;
+      // int path_index = (int) std::ceil(((double) path.size()) / 2);    
+      // goal.x = path[path_index].x;
+      // goal.y = path[path_index].y;
+      
+      // ROS_INFO("Current: (%f, %f) Goal: (%f, %f)", (double) current_pos.x, (double) current_pos.y, (double) goal.x, (double) goal.y);
       tf::Vector3 start(linear_vel(goal, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), 0.1), 0, 0);
       drive_velocities.setOrigin(start);
 
@@ -376,182 +405,13 @@ namespace rra_local_planner {
     return result_traj_;
   }
 
-  // /*
-  //  * given the current state of the robot, find a good trajectory
-  //  */
-  // base_local_planner::Trajectory RRAPlanner::findBestPath(
-  //     tf::Stamped<tf::Pose> global_pose,
-  //     tf::Stamped<tf::Pose> global_vel,
-  //     tf::Stamped<tf::Pose>& drive_velocities) {
-
-  //   //make sure that our configuration doesn't change mid-run
-  //   boost::mutex::scoped_lock l(configuration_mutex_);
-
-  //   Eigen::Vector3f pos(global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), tf::getYaw(global_pose.getRotation()));
-  //   Eigen::Vector3f vel(global_vel.getOrigin().getX(), global_vel.getOrigin().getY(), tf::getYaw(global_vel.getRotation()));
-  //   geometry_msgs::PoseStamped goal_pose = global_plan_.back();
-  //   Eigen::Vector3f goal(goal_pose.pose.position.x, goal_pose.pose.position.y, tf::getYaw(goal_pose.pose.orientation));
-  //   base_local_planner::LocalPlannerLimits limits = planner_util_->getCurrentLimits();
-
-  //   // prepare cost functions and generators for this run
-  //   generator_.initialise(pos,
-  //       vel,
-  //       goal,
-  //       &limits,
-  //       vsamples_);
-
-  //   result_traj_.cost_ = -7;
-  //   // find best trajectory by sampling and scoring the samples
-  //   std::vector<base_local_planner::Trajectory> all_explored;
-  //   scored_sampling_planner_.findBestTrajectory(result_traj_, &all_explored);
-
-  //   if(publish_traj_pc_)
-  //   {
-  //       base_local_planner::MapGridCostPoint pt;
-  //       traj_cloud_->points.clear();
-  //       traj_cloud_->width = 0;
-  //       traj_cloud_->height = 0;
-  //       std_msgs::Header header;
-  //       pcl_conversions::fromPCL(traj_cloud_->header, header);
-  //       header.stamp = ros::Time::now();
-  //       traj_cloud_->header = pcl_conversions::toPCL(header);
-  //       for(std::vector<base_local_planner::Trajectory>::iterator t=all_explored.begin(); t != all_explored.end(); ++t)
-  //       {
-  //           if(t->cost_<0)
-  //               continue;
-  //           // Fill out the plan
-  //           for(unsigned int i = 0; i < t->getPointsSize(); ++i) {
-  //               double p_x, p_y, p_th;
-  //               t->getPoint(i, p_x, p_y, p_th);
-  //               pt.x=p_x;
-  //               pt.y=p_y;
-  //               pt.z=0;
-  //               pt.path_cost=p_th;
-  //               pt.total_cost=t->cost_;
-  //               traj_cloud_->push_back(pt);
-  //           }
-  //       }
-  //       traj_cloud_pub_.publish(*traj_cloud_);
-  //   }
-
-  //   // verbose publishing of point clouds
-  //   if (publish_cost_grid_pc_) {
-  //     //we'll publish the visualization of the costs to rviz before returning our best trajectory
-  //     map_viz_.publishCostCloud(planner_util_->getCostmap());
-  //   }
-
-  //   // debrief stateful scoring functions
-  //   oscillation_costs_.updateOscillationFlags(pos, &result_traj_, planner_util_->getCurrentLimits().min_trans_vel);
-
-  //   //if we don't have a legal trajectory, we'll just command zero
-  //   if (result_traj_.cost_ < 0) {
-  //     drive_velocities.setIdentity();
-  //   } else {
-  //     tf::Vector3 start(result_traj_.xv_, result_traj_.yv_, 0);
-  //     drive_velocities.setOrigin(start);
-  //     tf::Matrix3x3 matrix;
-  //     matrix.setRotation(tf::createQuaternionFromYaw(result_traj_.thetav_));
-  //     drive_velocities.setBasis(matrix);
-  //   }
-
-  //   return result_traj_;
-  // }
-
-  /*
-   * given the current state of the robot, find a trajectory
-   */
-  // base_local_planner::Trajectory RRAPlanner::findBestPath(
-  //     tf::Stamped<tf::Pose> global_pose,
-  //     tf::Stamped<tf::Pose> global_vel,
-  //     tf::Stamped<tf::Pose>& drive_velocities,
-  //     geometry_msgs::Twist& cmd_vell) {
-
-  //   //make sure that our configuration doesn't change mid-run
-  //   boost::mutex::scoped_lock l(configuration_mutex_);
-
-  //   geometry_msgs::PoseStamped goal_pose = global_plan_.back();
-  //   // ROS_INFO("Global Plan - Back: (%f, %f)", goal_pose.pose.position.x, goal_pose.pose.position.y);
-
-  //   base_local_planner::LocalPlannerLimits limits = planner_util_->getCurrentLimits();
-
-  //   // Converts Costmap to graph to be used in the A* method
-  //   GridWithWeights* graph = costmapToGrid( planner_util_->getCostmap() );
-
-  //   // robot's start and goal to be used in the A* method
-  //   Pos startt, goall;
-  //   startt.x  = global_pose.getOrigin().getX();
-  //   startt.y  = global_pose.getOrigin().getY();
-  //   startt.th = global_pose.getRotation().getAngle();
-  //   goall.x   = goal_pose.pose.position.xresult_traj_.thetav_;
-  //   goall.y   = goal_pose.pose.position.y;
-
-  //   // Creates data structures to me populated in the A*
-  //   std::unordered_map<Pos, Pos> came_from;                                     // Path
-  //   std::unordered_map<Pos, double> cost_so_far;                                // Just to be used inside A*
-
-  //   // A* 
-  //   AStar::AStar astar;                                                        // A* handler
-  //   astar.AStarSearch(*(graph), startt, goall, came_from, cost_so_far);        // A* method run
-  //   std::vector<Pos> path = astar.reconstruct_path(startt, goall, came_from);  // Path arrangment
-  //   result_traj_.cost_ = 12;                                                    // Hard assigment for legacy behaviour
-
-  //   ROS_INFO("Global Plan: ");
-  //   for (auto glob = global_plan_.begin(); glob != global_plan_.end(); glob++)
-  //   {
-  //     std::cout << "(" << (*glob).pose.position.x << ", " << (*glob).pose.position.y << ")->";
-  //   }
-  //   std::cout << std::endl;
-
-  //   ROS_INFO("Start:  (%f, %f, %f)", (double)startt.x,  (double)startt.y, (double)startt.th);
-  //   ROS_INFO("Goal:   (%f, %f)", (double)goall.x,   (double)goall.y);
-  //   ROS_INFO("Path size: %d", (int)path.size());
-  //   ROS_INFO("Local Plan: ");
-  //   for (auto i = path.begin(); i != path.end(); i++)
-  //   {
-  //     std::cout << "(" << (*i).x << ", " << (*i).y << ")->";
-  //   }
-  //   std::cout << std::endl;
-
-  //   // cmd_vel generation
-  //   cmd_vell.linear.x   = linear_vel(goall, startt.x, startt.y, 0.5);
-  //   cmd_vell.linear.y   = 0;
-  //   cmd_vell.linear.z   = 0;
-  //   cmd_vell.angular.x  = 0;
-  //   cmd_vell.angular.y  = 0;
-  //   cmd_vell.angular.z  = angular_vel(goall, startt.x, startt.y, startt.th, 10);
-
-  //   ROS_INFO("FROM (%f, %f) TO (%f, %f): %f", (double)startt.x,  (double)startt.y, (double)goall.x,   (double)goall.y, angles::to_degrees(cmd_vell.angular.z) );
-
-  //   ROS_INFO("Euclidian dist.: %f", euclidian_distance(goall, startt.x, startt.x));
-  //   ROS_INFO("linear vel: %f", cmd_vell.linear.x);
-  //   ROS_INFO("steering angle: %f", steering_angle(goall, startt.x, startt.y));
-  //   // auto local_goal = path[1];                                                  // get closest point determined by A*
-  //   // cmd_vell.linear.x = linear_vel(       local_goal,
-  //   //                               (double)global_pose.getOrigin().getX(),
-  //   //                               (double)global_pose.getOrigin().getY(),
-  //   //                               (double)1);
-  //   // cmd_vell.linear.y   = 0;
-  //   // cmd_vell.linear.z   = 0;
-  //   // cmd_vell.angular.x  = 0;
-  //   // cmd_vell.angular.y  = 0;
-  //   // cmd_vell.angular.z  = angular_vel(local_goal,
-  //   //                                   (double) global_pose.getOrigin().getX(),
-  //   //                                   (double) global_pose.getOrigin().getY(),
-  //   //                                   (double) global_pose.getOrigin().getZ(),
-  //   //                                   (double) 1);
-
-  //   // ROS_INFO("s.x: %f, s.y: %f", (double) global_pose.getOrigin().getX(), (double) global_pose.getOrigin().getY());
-  //   // ROS_INFO("g.x: %f, g.y: %f", (double) local_goal.x, (double) local_goal.y);  
-  //   // ROS_INFO("angular_vel: %f", cmd_vell.angular.z);
-
-  //   return result_traj_;
-  // }
-
   double euclidian_distance(Pos goal_pos, double self_x, double self_y){
     return sqrt(  pow(((double) goal_pos.x - self_x), 2) + 
                   pow(((double) goal_pos.y - self_y), 2));
   }
 
+  // As outlined in Section 4.1.1, a simple heading proportional
+  // controller was utilized Bertaska2015Experimental and Go to Goal ROS move_base tutorial
   double linear_vel(Pos goal_pos, double self_x, double self_y, double constt){
     return constt * euclidian_distance(goal_pos, self_x, self_y);
   }
@@ -580,74 +440,23 @@ namespace rra_local_planner {
     // return atan2((double) goal_pos.y, (double) goal_pos.x) - atan2((double) goal_pos.y, (double) goal_pos.x);
   }
 
-  //   base_local_planner::Trajectory *test_traj = new base_local_planner::Trajectory();
-  //   for (auto i = path.begin(); i != path.end(); ++i){
-  //     // std::cout << "(" << (*i).x << ", " << (*i).y << ")" << std::endl;
-  //     test_traj->addPoint((*i).x, (*i).y, global_pose.getOrigin().getZ());
-  //   }
-
-  //   double xx, yy, zz;
-  //   for (int i = 0; i < test_traj->getPointsSize(); i++)
-  //   {
-  //     test_traj->getPoint(i, xx, yy, zz);
-  //     std::cout << "(" << xx << ", " << yy << ")->";
-  //   }
-
-  //   std::cout << std::endl;
-
-  //   test_traj->getPoint(0, xx, yy, zz); // gets closer point
-  //   test_traj->resetPoints();
-  //   test_traj->xv_ = xx;
-  //   test_traj->yv_ = yy;
-  //   test_traj->cost_ = 12;
-
-  //   result_traj_ = *test_traj;
-
-  //   // debrief stateful scoring functions
-  //   oscillation_costs_.updateOscillationFlags(pos, &result_traj_, planner_util_->getCurrentLimits().min_trans_vel);
-
-  //   // cmd_vel assemble
-  //   // angular velocity
-  //   // linear velocity
-
-  //   ROS_INFO("Next X: %f, Y: %f, Th: %f", xx, yy, zz);
-
-  //   Pos auxPos;
-  //   auxPos.x = xx;
-  //   auxPos.y = yy;
-  //   auxPos.th = zz;
-
-  //   double result = atan2(auxPos.x - startt.x, auxPos.y - startt.y) * 180 / PI;
-
-  //   ROS_INFO("Angle: %f", result);
-
-  //   // drive_velocities (cmd_vel) construction
-  //   tf::Vector3 start(auxPos.x, auxPos.y, 0);
-  //   drive_velocities.setOrigin(start);
-  //   tf::Matrix3x3 matrix;
-  //   matrix.setRotation(tf::createQuaternionFromYaw(result));
-  //   drive_velocities.setBasis(matrix);
-
-  //   ROS_INFO("Drive velocities set");
-
-  //   return result_traj_;
-  // }
-
   GridWithWeights* RRAPlanner::costmapToGrid(costmap_2d::Costmap2D *costmap){
 
     Pos auxPosi;
     GridWithWeights *grid_p = new GridWithWeights(costmap->getSizeInCellsX(), costmap->getSizeInCellsY());
 
+    // ROS_INFO("Costmap size: %d x %d", costmap->getSizeInCellsX(), costmap->getSizeInCellsY());
+
     for (size_t j = 0; j < costmap->getSizeInCellsY(); j++)
     {
       for (size_t i = 0; i < costmap->getSizeInCellsX(); i++)
       {
-        if ( static_cast<int>(costmap->getCost(i, j)) == 254)
+        if ( costmap->getCost(i, j) > 1)
         {
           auxPosi.x = i;
           auxPosi.y = j;
           grid_p->walls.insert(auxPosi);
-          // std::cout << "INSERTED AS WALL" << std::endl;
+          // ROS_INFO("Pos (%d, %d) - cost: %f", i, j, (double) costmap->getCost((int)i, (int)j));
         }
       }
     }

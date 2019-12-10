@@ -33,7 +33,8 @@ namespace std{
         typedef std::size_t result_type;
 		std::size_t operator()(const Pos& p) const noexcept
 		{
-		    return std::hash<int>()(p.x ^ (p.y << 4));
+		    return (std::hash<int>()(p.x) ^ (std::hash<int>()(p.y) << 2));
+				// return std::hash<int>()(p.x ^ (p.y << 4));
 		}
 	};
 }

@@ -13,6 +13,9 @@ namespace AStar
     std::unordered_map<Pos, Pos> &came_from, 
     std::unordered_map<Pos, double> &cost_so_far)
   {
+    
+    std::cout << "Started A* Search" << std::endl;
+
     PriorityQueue<Pos, double> frontier;                                      // Ordering frontier exploration by lowest cost
     frontier.put(start, 0);                                                   // Frontier exploration starts on start point
 
@@ -39,6 +42,9 @@ namespace AStar
         }
       }
     }
+
+    std::cout << "Finished A* Search" << std::endl;
+
   }
 
   // template<typename Pos>
