@@ -62,8 +62,20 @@
 
 #include <nav_msgs/Path.h>
 
+#include <string.h>
+#include <ros/ros.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <tf/tf.h>
+#include <set>
+
 #include "../../include/AStar/Astar.h"
 // #include "../AStar/Astar.h"
+
+struct GridSquare
+{
+    int currentGridSquare;
+    float fCost;
+};
 
 namespace rra_local_planner {
   /**
@@ -72,6 +84,37 @@ namespace rra_local_planner {
    */
   class RRAPlanner {
     public:
+
+      float originX;
+      float originY;
+      float resolution;
+      costmap_2d::Costmap2DROS *costmap_ros_;
+      costmap_2d::Costmap2D *costmap_;
+      bool initialized_;
+      int width;
+      int height;
+      
+      // Other methods
+      void convertToMapCoordinates(float &x, float &y);
+      int getGridSquareIndex(float x, float y);
+      void getGridSquareCoordinates(int index, float &x, float &y);
+      bool isCoordinateInBounds(float x, float y);
+      std::vector<int> runAStarOnGrid(int startGridSquare, int goalGridSquare);
+      std::vector<int> findPath(int startGridSquare, int goalGridSquare, float g_score[]);
+      std::vector<int> constructPath(int startGridSquare, int goalGridSquare, float g_score[]);
+      void addNeighborGridSquareToOpenList(std::multiset<GridSquare> &OPL, int neighborGridSquare, int goalGridSquare, float g_score[]);
+      std::vector<int> findFreeNeighborGridSquare(int gridSquareIndex);
+      bool isStartAndGoalValid(int startGridSquare, int goalGridSquare);
+      float getMoveCost(int gridSquareIndex1, int gridSquareIndex2);
+      float getMoveCost(int i1, int j1, int i2, int j2);
+      float calculateHScore(int gridSquareIndex, int goalGridSquare);
+      int calculateGridSquareIndex(int i, int j);
+      int getGridSquareRowIndex(int index);
+      int getGridSquareColIndex(int index);
+      bool isFree(int gridSquareIndex); 
+      bool isFree(int i, int j);
+
+
       /**
        * @brief  Constructor for the planner
        * @param name The name of the planner 
