@@ -342,8 +342,8 @@ namespace rra_local_planner {
 
     // Gets closer global plan position
     Pos astar_goal;
-    astar_goal.x = goal_pose.pose.position.x;
-    astar_goal.y = goal_pose.pose.position.y;
+    astar_goal.x = (goal_pose.pose.position.x - planner_util_->getCostmap()->getOriginX()) / planner_util_->getCostmap()->getResolution();
+    astar_goal.y = (goal_pose.pose.position.y - planner_util_->getCostmap()->getOriginY()) / planner_util_->getCostmap()->getResolution();
     // Gets robot current position
     Pos current_pos;
     current_pos.x = global_pose.getOrigin().getX();
@@ -386,25 +386,25 @@ namespace rra_local_planner {
     // oscillation_costs_.updateOscillationFlags(pos, &result_traj_, planner_util_->getCurrentLimits().min_trans_vel);
 
     //if we don't have a legal trajectory, we'll just command zero
-    if (result_traj_.cost_ < 0) {
-      drive_velocities.setIdentity();
-    } else {
-      Pos goal;
-      goal.x = global_plan_.back().pose.position.x;
-      goal.y = global_plan_.back().pose.position.y;
-      // int path_index = (int) std::ceil(((double) path.size()) / 2);    
-      // goal.x = path[path_index].x;
-      // goal.y = path[path_index].y;
+    // if (result_traj_.cost_ < 0) {
+    //   drive_velocities.setIdentity();
+    // } else {
+    //   Pos goal;
+    //   goal.x = (global_plan_.back().pose.position.x - planner_util_->getCostmap()->getOriginX()) * planner_util_->getCostmap()->getResolution();
+    //   goal.y = (global_plan_.back().pose.position.y - planner_util_->getCostmap()->getOriginY()) * planner_util_->getCostmap()->getResolution();
+    //   // int path_index = (int) std::ceil(((double) path.size()) / 2);    
+    //   // goal.x = path[path_index].x;
+    //   // goal.y = path[path_index].y;
       
-      // ROS_INFO("Current: (%f, %f) Goal: (%f, %f)", (double) current_pos.x, (double) current_pos.y, (double) goal.x, (double) goal.y);
-      tf::Vector3 start(linear_vel(goal, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), 0.1), 0, 0);
-      drive_velocities.setOrigin(start);
+    //   // ROS_INFO("Current: (%f, %f) Goal: (%f, %f)", (double) current_pos.x, (double) current_pos.y, (double) goal.x, (double) goal.y);
+    //   tf::Vector3 start(linear_vel(goal, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), 0.1), 0, 0);
+    //   drive_velocities.setOrigin(start);
 
-      tf::Matrix3x3 matrix;
-      matrix.setRotation(tf::createQuaternionFromYaw(angular_vel(goal, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), tf::getYaw(global_pose.getRotation()), 1)));
-      drive_velocities.setBasis(matrix);
+    //   tf::Matrix3x3 matrix;
+    //   matrix.setRotation(tf::createQuaternionFromYaw(angular_vel(goal, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), tf::getYaw(global_pose.getRotation()), 1)));
+    //   drive_velocities.setBasis(matrix);
 
-    }
+    // }
 
     return result_traj_;
   }
