@@ -56,10 +56,10 @@
 
 namespace rra_local_planner {
 
-  double euclidian_distance (Pos pos, double x, double y);
-  double linear_vel         (Pos pos, double x, double y, double constt = 1);
-  double angular_vel        (Pos pos, double x, double y, double self_th, double constt = 1);
-  double steering_angle     (Pos pos, double x, double y);
+  double euclidian_distance (double goal_x, double goal_y, double current_x, double current_y);
+  double linear_vel         (double goal_x, double goal_y, double current_x, double current_y, double constt = 1);
+  double angular_vel        (double goal_x, double goal_y, double current_x, double current_y, double self_th, double constt = 1);
+  double steering_angle     (double goal_x, double goal_y, double current_x, double current_y);
 
 
   void RRAPlanner::reconfigure(RRAPlannerConfig &config)
@@ -317,13 +317,11 @@ namespace rra_local_planner {
     //make sure that our configuration doesn't change mid-run
     boost::mutex::scoped_lock l(configuration_mutex_);
 
-    Eigen::Vector3f pos(global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), tf::getYaw(global_pose.getRotation()));
-    Eigen::Vector3f vel(global_vel.getOrigin().getX(), global_vel.getOrigin().getY(), tf::getYaw(global_vel.getRotation()));
     geometry_msgs::PoseStamped goal_pose = global_plan_.back();
     // Eigen::Vector3f goal(goal_pose.pose.position.x, goal_pose.pose.position.y, tf::getYaw(goal_pose.pose.orientation));
     base_local_planner::LocalPlannerLimits limits = planner_util_->getCurrentLimits();
 
-    ROS_INFO("global_plan size: %d", global_plan_.size());
+    ROS_INFO("global_plan size: %d", (int) global_plan_.size());
     ROS_INFO("first: (%f, %f) last: (%f, %f))", 
       global_plan_.back().pose.position.x, 
       global_plan_.back().pose.position.y, 
@@ -355,7 +353,7 @@ namespace rra_local_planner {
     AStar::AStar astar;                                                                 // A* handler
     astar.AStarSearch(*(graph), current_pos, astar_goal, came_from, cost_so_far);       // A* method execution
     std::vector<Pos> local_path = astar.reconstruct_path(current_pos, astar_goal, came_from); // Util for easier path use
-    std::vector<Pos> global_path;
+    std::vector<geometry_msgs::Point> global_path;
 
     ROS_INFO("Local path:");
     for (auto pos = local_path.begin(); pos != local_path.end(); pos++)
@@ -363,13 +361,22 @@ namespace rra_local_planner {
       std::cout << "( " << pos->x << ", " << pos->y << ")->";
     }
 
-    for (auto pos = local_path.begin(); pos != local_path.end(); pos++)
+    for (unsigned short int i = 0; i < local_path.size(); i++)
     {
-      Pos global_pos;
-      // (Xg*resolution + Xcostmap, Yg*resolution + Ycostmap)
-      global_pos.x = (pos->x) * (planner_util_->getCostmap()->getResolution()) + planner_util_->getCostmap()->getOriginX();
-      global_pos.y = (pos->y) * (planner_util_->getCostmap()->getResolution()) + planner_util_->getCostmap()->getOriginY();
+
+      double deltaX = abs(goal_pose.pose.position.x - global_pose.getOrigin().getX()) / local_path.size();
+      double deltaY = abs(goal_pose.pose.position.y - global_pose.getOrigin().getY()) / local_path.size();
+
+      geometry_msgs::Point global_pos;
+      // // (Xg*resolution + Xcostmap, Yg*resolution + Ycostmap)
+      global_pos.x = local_path[i].x * planner_util_->getCostmap()->getResolution() + planner_util_->getCostmap()->getOriginX();
+      global_pos.y = local_path[i].y * planner_util_->getCostmap()->getResolution() + planner_util_->getCostmap()->getOriginY();
+
+      // global_pos.x = global_pose.getOrigin().getX() + i*(goal_pose.pose.position.x - global_pose.getOrigin().getX())/local_path.size();
+      // global_pos.y = global_pose.getOrigin().getX() + i*(goal_pose.pose.position.y - global_pose.getOrigin().getY())/local_path.size();
+
       global_path.push_back(global_pos);
+
     }
 
     ROS_INFO("Global path:");
@@ -391,53 +398,52 @@ namespace rra_local_planner {
 
     // Populating result_traj_ for debugging propose
     result_traj_.resetPoints();
-    for (auto p = local_path.begin(); p != local_path.end(); p++)
+    for (auto p = global_path.begin(); p != global_path.end(); p++)
     {
-      Pos tempPos;
-      tempPos.x = p->x;
-      tempPos.y = p->y;
-      result_traj_.addPoint(p->x, p->y, steering_angle(tempPos, current_pos.x, current_pos.y));
+      result_traj_.addPoint(p->x, p->y, steering_angle(p->x, p->y, global_pose.getOrigin().getX(), global_pose.getOrigin().getX()));
     }
 
+    Eigen::Vector3f pos(global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), tf::getYaw(global_pose.getRotation()));
     // debrief stateful scoring functions
     oscillation_costs_.updateOscillationFlags(pos, &result_traj_, planner_util_->getCurrentLimits().min_trans_vel);
 
-    //if we don't have a legal trajectory, we'll just command zero
+    // if we don't have a legal trajectory, we'll just command zero
+    // if (result_traj_.cost_ < 0) {
+    //   drive_velocities.setIdentity();
+    // } else {
+    //   tf::Vector3 start(result_traj_.xv_, result_traj_.yv_, 0);
+    //   drive_velocities.setOrigin(start);
+    //   tf::Matrix3x3 matrix;
+    //   matrix.setRotation(tf::createQuaternionFromYaw(result_traj_.thetav_));
+    //   drive_velocities.setBasis(matrix);
+    // }
+
     if (result_traj_.cost_ < 0) {
       drive_velocities.setIdentity();
     } else {
-      Pos goal;
-      // goal.x = (global_plan_.back().pose.position.x - planner_util_->getCostmap()->getOriginX()) * planner_util_->getCostmap()->getResolution();
-      // goal.y = (global_plan_.back().pose.position.y - planner_util_->getCostmap()->getOriginY()) * planner_util_->getCostmap()->getResolution();
-      goal.x = global_path[1].x;
-      goal.y = global_path[1].y;
-      
-      // ROS_INFO("Current: (%f, %f) Goal: (%f, %f)", (double) current_pos.x, (double) current_pos.y, (double) goal.x, (double) goal.y);
-      tf::Vector3 start(linear_vel(goal, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), 0.1), 0, 0);
+      tf::Vector3 start(linear_vel(global_path.back().x, global_path.back().y, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), 0.1), 0, 0);
       drive_velocities.setOrigin(start);
-
       tf::Matrix3x3 matrix;
-      matrix.setRotation(tf::createQuaternionFromYaw(angular_vel(goal, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), tf::getYaw(global_pose.getRotation()), 1)));
+      matrix.setRotation(tf::createQuaternionFromYaw(angular_vel(global_path.back().x, global_path.back().y, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), tf::getYaw(global_pose.getRotation()), 1)));
       drive_velocities.setBasis(matrix);
-
     }
 
     return result_traj_;
   }
 
-  double euclidian_distance(Pos goal_pos, double self_x, double self_y){
-    return sqrt(  pow(((double) goal_pos.x - self_x), 2) + 
-                  pow(((double) goal_pos.y - self_y), 2));
+  double euclidian_distance(double goal_x, double goal_y, double self_x, double self_y){
+    return sqrt(  pow((goal_x - self_x), 2) + 
+                  pow((goal_y - self_y), 2));
   }
 
   // As outlined in Section 4.1.1, a simple heading proportional
   // controller was utilized Bertaska2015Experimental and Go to Goal ROS move_base tutorial
-  double linear_vel(Pos goal_pos, double self_x, double self_y, double constt){
-    return constt * euclidian_distance(goal_pos, self_x, self_y);
+  double linear_vel(double goal_x, double goal_y, double self_x, double self_y, double constt){
+    return constt * euclidian_distance(goal_x, goal_y, self_x, self_y);
   }
 
-  double angular_vel(Pos goal_pos, double self_x, double self_y, double self_th, double constt){
-    return constt * (steering_angle(goal_pos, self_x, self_y) - self_th);
+  double angular_vel(double goal_x, double goal_y, double self_x, double self_y, double self_th, double constt){
+    return constt * (steering_angle(goal_x, goal_y, self_x, self_y) - self_th);
 
     // double err = steering_angle(goal_pos, self_x, self_y) - self_th;
     // double P = Kp * err;
@@ -446,8 +452,8 @@ namespace rra_local_planner {
     // return P + I;yy
   }
 
-  double steering_angle(Pos goal_pos, double self_x, double self_y){
-    double angle = atan2((double) goal_pos.y - self_y, (double) goal_pos.x - self_x);
+  double steering_angle(double goal_x, double goal_y, double self_x, double self_y){
+    double angle = atan2( goal_y - self_y, goal_x - self_x);
 
     if (angle > PI)
     {
