@@ -338,14 +338,25 @@ namespace rra_local_planner {
     std::unordered_map<Pos, Pos>    came_from;                                // Path
     std::unordered_map<Pos, double> cost_so_far;                              // A*'s exploration phase util
 
-    // Gets closer global plan position
+    int mx, my;
+
+    // Gets closer global plan position in local frame reference
     Pos astar_goal;
-    astar_goal.x = (goal_pose.pose.position.x - planner_util_->getCostmap()->getOriginX()) / planner_util_->getCostmap()->getResolution();
-    astar_goal.y = (goal_pose.pose.position.y - planner_util_->getCostmap()->getOriginY()) / planner_util_->getCostmap()->getResolution();
-    // Gets robot current position
+    planner_util_->getCostmap()->worldToMapEnforceBounds(   goal_pose.pose.position.x, 
+                                                            goal_pose.pose.position.y, 
+                                                            mx, 
+                                                            my);
+    astar_goal.x = mx;
+    astar_goal.y = my;
+
+    // Gets robot current position in local frame reference
     Pos current_pos;
-    current_pos.x = (global_pose.getOrigin().getX() - planner_util_->getCostmap()->getOriginX()) / planner_util_->getCostmap()->getResolution();
-    current_pos.y = (global_pose.getOrigin().getY() - planner_util_->getCostmap()->getOriginY()) / planner_util_->getCostmap()->getResolution();
+    planner_util_->getCostmap()->worldToMapEnforceBounds(   global_pose.getOrigin().getX(), 
+                                                            global_pose.getOrigin().getY(), 
+                                                            mx, 
+                                                            my);
+    current_pos.x = mx;
+    current_pos.y = my;
 
     // A*
     ROS_INFO("A* goal:    (%f, %f)", (double) astar_goal.x, (double) astar_goal.y);
@@ -363,20 +374,15 @@ namespace rra_local_planner {
     }
     std::cout << std::endl;
 
-    for (unsigned short int i = 0; i < local_path.size(); i++)
+    for (auto pos = local_path.begin(); pos != local_path.end(); pos++)
     {
-
-      double deltaX = abs(goal_pose.pose.position.x - global_pose.getOrigin().getX()) / local_path.size();
-      double deltaY = abs(goal_pose.pose.position.y - global_pose.getOrigin().getY()) / local_path.size();
 
       geometry_msgs::Point global_pos;
       // // (Xg*resolution + Xcostmap, Yg*resolution + Ycostmap)
-      global_pos.x = local_path[i].x * planner_util_->getCostmap()->getResolution() + planner_util_->getCostmap()->getOriginX();
-      global_pos.y = local_path[i].y * planner_util_->getCostmap()->getResolution() + planner_util_->getCostmap()->getOriginY();
-
-      // global_pos.x = global_pose.getOrigin().getX() + i*(goal_pose.pose.position.x - global_pose.getOrigin().getX())/local_path.size();
-      // global_pos.y = global_pose.getOrigin().getX() + i*(goal_pose.pose.position.y - global_pose.getOrigin().getY())/local_path.size();
-
+      planner_util_->getCostmap()->mapToWorld(  pos->x, 
+                                                pos->y, 
+                                                global_pos.x, 
+                                                global_pos.y);
       global_path.push_back(global_pos);
 
     }
@@ -386,7 +392,7 @@ namespace rra_local_planner {
     {
       std::cout << "( " << pos->x << ", " << pos->y << ")->";
     }
-    std::count << std::endl;
+    std::cout << std::endl;
 
     draw_grid(*graph, 1, nullptr, nullptr, &local_path);
 
