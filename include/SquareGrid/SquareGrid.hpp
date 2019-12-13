@@ -64,34 +64,34 @@ struct SquareGrid {
 // the distances, or pass in a point_to map if you want to print
 // arrows that point to the parent location, or pass in a path vector
 // if you want to draw the path.
-// inline void draw_grid(const SquareGrid& grid, int field_width,
-//                std::unordered_map<Pos, double>* distances=nullptr,
-//                std::unordered_map<Pos, Pos>* point_to=nullptr,
-//                std::vector<Pos>* path=nullptr) {
-//   for (int y = 0; y != grid.height; ++y) {
-//     for (int x = 0; x != grid.width; ++x) {
-//       Pos id {x, y};
-//       std::cout << std::left << std::setw(field_width);
-//       if (grid.walls.find(id) != grid.walls.end()) {
-//         std::cout << std::string(field_width, '#');
-//       } else if (point_to != nullptr && point_to->count(id)) {
-//         Pos next = (*point_to)[id];
-//         if (next.x == x + 1) { std::cout << "> "; }
-//         else if (next.x == x - 1) { std::cout << "< "; }
-//         else if (next.y == y + 1) { std::cout << "v "; }
-//         else if (next.y == y - 1) { std::cout << "^ "; }
-//         else { std::cout << "* "; }
-//       } else if (distances != nullptr && distances->count(id)) {
-//         std::cout << (*distances)[id];
-//       } else if (path != nullptr && find(path->begin(), path->end(), id) != path->end()) {
-//         std::cout << '@';
-//       } else {
-//         std::cout << '.';
-//       }
-//     }
-//     std::cout << '\n';
-//   }
-// }
+inline void draw_grid(const SquareGrid& grid, int field_width,
+               std::unordered_map<Pos, double>* distances=nullptr,
+               std::unordered_map<Pos, Pos>* point_to=nullptr,
+               std::vector<Pos>* path=nullptr) {
+  for (int y = 0; y != grid.height; ++y) {
+    for (int x = 0; x != grid.width; ++x) {
+      Pos id {x, y};
+      std::cout << std::left << std::setw(field_width);
+      if (grid.walls.find(id) != grid.walls.end()) {
+        std::cout << std::string(field_width, '#');
+      } else if (point_to != nullptr && point_to->count(id)) {
+        Pos next = (*point_to)[id];
+        if (next.x == x + 1) { std::cout << "> "; }
+        else if (next.x == x - 1) { std::cout << "< "; }
+        else if (next.y == y + 1) { std::cout << "v "; }
+        else if (next.y == y - 1) { std::cout << "^ "; }
+        else { std::cout << "* "; }
+      } else if (distances != nullptr && distances->count(id)) {
+        std::cout << (*distances)[id];
+      } else if (path != nullptr && find(path->begin(), path->end(), id) != path->end()) {
+        std::cout << '@';
+      } else {
+        std::cout << '.';
+      }
+    }
+    std::cout << '\n';
+  }
+}
 
 // inline void add_rect(SquareGrid& grid, int x1, int y1, int x2, int y2) {
 //   for (int x = x1; x < x2; ++x) {

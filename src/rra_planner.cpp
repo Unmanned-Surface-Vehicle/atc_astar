@@ -54,12 +54,6 @@
 #define Kp 0.1
 #define Ki 0
 
-int   mapSize;
-bool  *occupancyGridMap;
-
-// Cost of non connected nodes
-float infinity = std::numeric_limits<float>::infinity();
-
 namespace rra_local_planner {
 
   double euclidian_distance (Pos pos, double x, double y);
@@ -329,153 +323,42 @@ namespace rra_local_planner {
     // Eigen::Vector3f goal(goal_pose.pose.position.x, goal_pose.pose.position.y, tf::getYaw(goal_pose.pose.orientation));
     base_local_planner::LocalPlannerLimits limits = planner_util_->getCurrentLimits();
 
-    std::vector<geometry_msgs::PoseStamped> plan;
+    ROS_INFO("global_plan size: %d", global_plan_.size());
+    ROS_INFO("first: (%f, %f) last: (%f, %f))", 
+      global_plan_.back().pose.position.x, 
+      global_plan_.back().pose.position.y, 
+      global_plan_.front().pose.position.x, 
+      global_plan_.front().pose.position.y);
 
-    originX     = planner_util_->getCostmap()->getOriginX() + 0.7;
-    originY     = planner_util_->getCostmap()->getOriginY() + 0.9;
-    ROS_INFO("Origin: (%f, %f)", originX, originY);
-
-    width       = planner_util_->getCostmap()->getSizeInCellsX();
-    height      = planner_util_->getCostmap()->getSizeInCellsY();
-    resolution  = planner_util_->getCostmap()->getResolution();
-    mapSize     = width * height;
-
-    ROS_INFO("WidthxHeight: %d x %d", width, height);
-    ROS_INFO("Res: %f Size: %d", resolution, mapSize);
-
-    occupancyGridMap = new bool[mapSize];
-    for (unsigned int iy = 0; iy < planner_util_->getCostmap()->getSizeInCellsY(); iy++)
-    {
-      for (unsigned int ix = 0; ix < planner_util_->getCostmap()->getSizeInCellsX(); ix++)
-      {
-        unsigned int cost = static_cast<int>(planner_util_->getCostmap()->getCost(ix, iy));
-
-        if (cost == 0)
-          occupancyGridMap[iy * width + ix] = true;
-        else
-          occupancyGridMap[iy * width + ix] = false;
-      }
-    }
-
-    // Convert the start and goal positions
-    float startX = global_pose.getOrigin().getX();
-    float startY = global_pose.getOrigin().getY();
-    float goalX = goal_pose.pose.position.x;
-    float goalY = goal_pose.pose.position.y;
-
-    ROS_INFO("Start: (%f, %f)", startX, startY);
-    ROS_INFO("Goal: (%f, %f)", goalX, goalY);
-
-    // Convert to map coordinates relative to costmap origin
-    convertToMapCoordinates(startX, startY);
-    convertToMapCoordinates(goalX, goalY);
-
-    int startGridSquare;
-    int goalGridSquare;
-
-    if (isCoordinateInBounds(startX, startY) && isCoordinateInBounds(goalX, goalY))
-    {
-      startGridSquare = getGridSquareIndex(startX, startY);
-      goalGridSquare = getGridSquareIndex(goalX, goalY);
-    }
-    else
-    {
-      ROS_WARN("(A* Planner) The start or goal is out of the map!");
-    }
-
-    // Call global planner
-    if (isStartAndGoalValid(startGridSquare, goalGridSquare))
-    {
-      std::vector<int> bestPath;
-      bestPath.clear();
-
-      // Runs planner
-      bestPath = runAStarOnGrid(startGridSquare, goalGridSquare);
-
-      // Check if planner found a path
-      if (bestPath.size() > 0)
-      {
-        // Convert the path
-        for (int i = 0; i < bestPath.size(); i++)
-        {
-
-          float x = 0.0;
-          float y = 0.0;
-
-          float previous_x = 0.0;
-          float previous_y = 0.0;
-
-          int index = bestPath[i];
-          int previous_index;
-          getGridSquareCoordinates(index, x, y);
-
-          if (i != 0)
-          {
-            previous_index = bestPath[i - 1];
-          }
-          else
-          {
-            previous_index = index;
-          }
-
-          getGridSquareCoordinates(previous_index, previous_x, previous_y);
-
-          // Orient the robot towards target
-          tf::Vector3 vectorToTarget;
-          vectorToTarget.setValue(x - previous_x, y - previous_y, 0.0);
-          float angle = atan2((double)vectorToTarget.y(), (double)vectorToTarget.x());
-
-          geometry_msgs::PoseStamped pose = goal_pose;
-
-          pose.pose.position.x = x;
-          pose.pose.position.y = y;
-          pose.pose.position.z = 0.0;
-
-          pose.pose.orientation = tf::createQuaternionMsgFromYaw(angle);
-
-          plan.push_back(pose);
-        }
-      }
-      else
-      {
-        ROS_WARN("(A* Planner) Failed to find a path, choose another goal position!");
-      }
-    } else
-    {
-      ROS_WARN("(A* Planner) Not valid start or goal!");
-    }
-
-    // ROS_INFO("global_plan size: %d", global_plan_.size());
-    // ROS_INFO("first: (%f, %f) last: (%f, %f))",
-    //   global_plan_.back().pose.position.x,
-    //   global_plan_.back().pose.position.y,
-    //   global_plan_.front().pose.position.x,
-    //   global_plan_.front().pose.position.y);
+    ROS_INFO("Costmap size: %d x %d", planner_util_->getCostmap()->getSizeInCellsX(), planner_util_->getCostmap()->getSizeInCellsY());
+    ROS_INFO("Costmap resolution: %f ", planner_util_->getCostmap()->getResolution());
 
     // Converts Costmap to graph to be used in the A* method
-    // GridWithWeights* graph = costmapToGrid( planner_util_->getCostmap() );
+    GridWithWeights* graph = costmapToGrid( planner_util_->getCostmap() );
 
     // Creates data structures to be populated in the A*
-    // std::unordered_map<Pos, Pos>    came_from;                                // Path
-    // std::unordered_map<Pos, double> cost_so_far;                              // A*'s exploration phase util
+    std::unordered_map<Pos, Pos>    came_from;                                // Path
+    std::unordered_map<Pos, double> cost_so_far;                              // A*'s exploration phase util
 
     // Gets closer global plan position
-    // Pos astar_goal;
-    // astar_goal.x = goal_pose.pose.position.x;
-    // astar_goal.y = goal_pose.pose.position.y;
+    Pos astar_goal;
+    astar_goal.x = goal_pose.pose.position.x;
+    astar_goal.y = goal_pose.pose.position.y;
     // Gets robot current position
-    // Pos current_pos;
-    // current_pos.x = global_pose.getOrigin().getX();
-    // current_pos.y = global_pose.getOrigin().getY();
+    Pos current_pos;
+    current_pos.x = global_pose.getOrigin().getX();
+    current_pos.y = global_pose.getOrigin().getY();
 
     // A*
-    // ROS_INFO("A* goal:    (%f, %f)", (double) astar_goal.x, (double) astar_goal.y);
-    // ROS_INFO("Robot pos:  (%f, %f)", (double) current_pos.x, (double) current_pos.y);
-    // AStar::AStar astar;                                                                 // A* handler
-    // astar.AStarSearch(*(graph), current_pos, astar_goal, came_from, cost_so_far);       // A* method execution
-    // std::std::vector<Pos> path = astar.reconstruct_path(current_pos, astar_goal, came_from); // Util for easier path use
+    ROS_INFO("A* goal:    (%f, %f)", (double) astar_goal.x, (double) astar_goal.y);
+    ROS_INFO("Robot pos:  (%f, %f)", (double) current_pos.x, (double) current_pos.y);
+    AStar::AStar astar;                                                                 // A* handler
+    astar.AStarSearch(*(graph), current_pos, astar_goal, came_from, cost_so_far);       // A* method execution
+    std::vector<Pos> path = astar.reconstruct_path(current_pos, astar_goal, came_from); // Util for easier path use
 
-    if (global_plan_.size() > 0)
+    draw_grid(*graph, 2, nullptr, nullptr, &path);
+
+    if (path.size() > 0)
     {
       result_traj_.cost_ = 12;
     }else{
@@ -484,30 +367,19 @@ namespace rra_local_planner {
 
     // result_traj_.cost_ = 12;                                                            // Legacy behaviour maintence
 
-    // for (auto pos = path.begin(); pos != path.end(); pos++)
-    // {
-    //   // std::cout << "( " << pos->x << ", " << pos->y << ")->" << std::endl;
-    // }
-
-    // Populating result_traj_ for debugging propose
-    // result_traj_.resetPoints();
-    // for (auto p = path.begin(); p != path.end(); p++)
-    // {
-    //   Pos tempPos;
-    //   tempPos.x = p->x;
-    //   tempPos.y = p->y;
-    //   result_traj_.addPoint(p->x, p->y, steering_angle(tempPos, current_pos.x, current_pos.y));
-    // }
+    for (auto pos = path.begin(); pos != path.end(); pos++)
+    {
+      std::cout << "( " << pos->x << ", " << pos->y << ")->";
+    }
 
     // Populating result_traj_ for debugging propose
     result_traj_.resetPoints();
-    for (auto p = plan.begin(); p != plan.end(); p++)
+    for (auto p = path.begin(); p != path.end(); p++)
     {
       Pos tempPos;
-      tempPos.x = p->pose.position.x;
-      tempPos.y = p->pose.position.y;
-      // result_traj_.addPoint(p->x, p->y, steering_angle(tempPos, current_pos.x, current_pos.y));
-      result_traj_.addPoint(p->pose.position.x, p->pose.position.y, steering_angle(tempPos, global_pose.getOrigin().getX(), global_pose.getOrigin().getY()));
+      tempPos.x = p->x;
+      tempPos.y = p->y;
+      result_traj_.addPoint(p->x, p->y, steering_angle(tempPos, current_pos.x, current_pos.y));
     }
 
     // debrief stateful scoring functions
@@ -519,9 +391,8 @@ namespace rra_local_planner {
     } else {
       Pos goal;
       goal.x = global_plan_.back().pose.position.x;
-      goal.y = global_plan_.back().pose.position.y;  
-      // goal.x = plan.back().pose.position.x;
-      // goal.y = plan.back().pose.position.y;
+      goal.y = global_plan_.back().pose.position.y;
+      // int path_index = (int) std::ceil(((double) path.size()) / 2);    
       // goal.x = path[path_index].x;
       // goal.y = path[path_index].y;
       
@@ -598,378 +469,4 @@ namespace rra_local_planner {
 
   };
 
-  /**
-    Adjust start and goal regarding origin point on map
-  **/
-  void RRAPlanner::convertToMapCoordinates(float &x, float &y)
-  {
-    x = x - originX;
-    y = y - originY;
-  }
-
-  /**
-    Get index of grid square on map given square coordinates
-  **/
-  int RRAPlanner::getGridSquareIndex(float x, float y)
-  {
-    int gridSquare;
-
-    float newX = x / (resolution);
-    float newY = y / (resolution);
-
-    gridSquare = calculateGridSquareIndex(newY, newX);
-
-    return gridSquare;
-  }
-
-  /**
-    Get gridSquare coordinates given index
-  **/
-  void RRAPlanner::getGridSquareCoordinates(int index, float &x, float &y)
-  {
-    x = getGridSquareColIndex(index) * resolution;
-
-    y = getGridSquareRowIndex(index) * resolution;
-
-    x = x + originX;
-    y = y + originY;
-  }
-
-  /**
-    Check if gridSquare coordinates are in map bounds
-  **/
-  bool RRAPlanner::isCoordinateInBounds(float x, float y)
-  {
-    bool valid = true;
-
-    if (x > (width * resolution) || y > (height * resolution))
-    {
-      valid = false;
-
-      if(x > (width * resolution)){
-        ROS_INFO("%f > %f", x, width * resolution);
-      }else if(y > (height * resolution)){
-        ROS_INFO("%f > %f", y, height * resolution);
-      }
-
-    }
-
-    return valid;
-  }
-
-  /**
-    Runs A* algorithm to find best path to goal on grid
-  **/
-  std::vector<int> RRAPlanner::runAStarOnGrid(int startGridSquare, int goalGridSquare)
-  {
-    std::vector<int> bestPath;
-
-    // Initialize g_score matrix with infinity for every point
-    float g_score[mapSize];
-    for (uint i = 0; i < mapSize; i++)
-    {
-      g_score[i] = infinity;
-    }
-
-    // Call method for finding path
-    bestPath = findPath(startGridSquare, goalGridSquare, g_score);
-
-    return bestPath;
-  }
-
-  /**
-    Generates the path for the bot towards the goal
-  **/
-  std::vector<int> RRAPlanner::findPath(int startGridSquare, int goalGridSquare, float g_score[])
-  {
-    // value++;
-    std::vector<int> bestPath;
-    std::vector<int> emptyPath;
-    GridSquare gridSq;
-
-    std::multiset<GridSquare> openSquaresList;
-    int currentGridSquare;
-
-    // Calculate g_score and f_score of the start position
-    g_score[startGridSquare] = 0;
-    gridSq.currentGridSquare = startGridSquare;
-    gridSq.fCost = g_score[startGridSquare] + calculateHScore(startGridSquare, goalGridSquare);
-
-    // Add the start gridSquare to the open list
-    openSquaresList.insert(gridSq);
-    currentGridSquare = startGridSquare;
-
-    // While the open list is not empty and till goal square is reached continue the search
-    while (!openSquaresList.empty() && g_score[goalGridSquare] == infinity)
-    {
-      // Choose the gridSquare that has the lowest cost fCost in the open set
-      currentGridSquare = openSquaresList.begin()->currentGridSquare;
-
-      // Remove that gridSquare from the openList
-      openSquaresList.erase(openSquaresList.begin());
-
-      // Search the neighbors of that gridSquare
-      std::vector<int> neighborGridSquares;
-      neighborGridSquares = findFreeNeighborGridSquare(currentGridSquare);
-      for (uint i = 0; i < neighborGridSquares.size(); i++) // For each neighbor of gridSquare
-      {
-        // If the g_score of the neighbor is equal to INF: unvisited gridSquare
-        if (g_score[neighborGridSquares[i]] == infinity)
-        {
-          g_score[neighborGridSquares[i]] = g_score[currentGridSquare] + getMoveCost(currentGridSquare, neighborGridSquares[i]);
-          addNeighborGridSquareToOpenList(openSquaresList, neighborGridSquares[i], goalGridSquare, g_score);
-        }
-      }
-    }
-
-    if (g_score[goalGridSquare] != infinity) // If goal gridSquare has been reached
-    {
-      bestPath = constructPath(startGridSquare, goalGridSquare, g_score);
-      return bestPath;
-    }
-    else
-    {
-      ROS_INFO("(A* Planner) Failure to find a path!");
-      return emptyPath;
-    }
-  }
-
-  /**
-    Constructs the path found by findPath function by returning std::vector of gridSquare indices that lie on path
-  **/
-  std::vector<int> RRAPlanner::constructPath(int startGridSquare, int goalGridSquare, float g_score[])
-  {
-    std::vector<int> bestPath;
-    std::vector<int> path;
-
-    path.insert(path.begin() + bestPath.size(), goalGridSquare);
-    int currentGridSquare = goalGridSquare;
-
-    while (currentGridSquare != startGridSquare)
-    {
-      std::vector<int> neighborGridSquares;
-      neighborGridSquares = findFreeNeighborGridSquare(currentGridSquare);
-
-      std::vector<float> gScoresNeighbors;
-      for (uint i = 0; i < neighborGridSquares.size(); i++)
-        gScoresNeighbors.push_back(g_score[neighborGridSquares[i]]);
-
-      int posMinGScore = distance(gScoresNeighbors.begin(), min_element(gScoresNeighbors.begin(), gScoresNeighbors.end()));
-      currentGridSquare = neighborGridSquares[posMinGScore];
-
-      // Insert the neighbor in the path
-      path.insert(path.begin() + path.size(), currentGridSquare);
-    }
-
-    for (uint i = 0; i < path.size(); i++)
-    {
-      bestPath.insert(bestPath.begin() + bestPath.size(), path[path.size() - (i + 1)]);
-    }
-
-    return bestPath;
-  }
-
-  /**
-    Add unexplored neighbors of currentGridSquare to openlist
-  **/
-  void RRAPlanner::addNeighborGridSquareToOpenList(std::multiset<GridSquare> &openSquaresList, int neighborGridSquare, int goalGridSquare, float g_score[])
-  {
-    GridSquare gridSq;
-    gridSq.currentGridSquare = neighborGridSquare; //insert the neighborGridSquare
-    gridSq.fCost = g_score[neighborGridSquare] + calculateHScore(neighborGridSquare, goalGridSquare);
-    openSquaresList.insert(gridSq);
-  }
-
-  /**
-    Find free neighbors of currentGridSquare 
-  **/
-  std::vector<int> RRAPlanner::findFreeNeighborGridSquare(int gridSquare)
-  {
-    int rowIndex = getGridSquareRowIndex(gridSquare);
-    int colIndex = getGridSquareColIndex(gridSquare);
-    int neighborIndex;
-    std::vector<int> freeNeighborGridSquares;
-
-    for (int i = -1; i <= 1; i++)
-      for (int j = -1; j <= 1; j++)
-      {
-        // Check whether the index is valid
-        if ((rowIndex + i >= 0) && (rowIndex + i < height) && (colIndex + j >= 0) && (colIndex + j < width) && (!(i == 0 && j == 0)))
-        {
-          neighborIndex = ((rowIndex + i) * width) + (colIndex + j);
-
-          if (isFree(neighborIndex))
-            freeNeighborGridSquares.push_back(neighborIndex);
-        }
-      }
-
-    return freeNeighborGridSquares;
-  }
-
-  /**
-    Checks if start and goal positions are valid and not unreachable.
-  **/
-  bool RRAPlanner::isStartAndGoalValid(int startGridSquare, int goalGridSquare)
-  {
-    bool isvalid = true;
-    bool isFreeStartGridSquare = isFree(startGridSquare);
-    bool isFreeGoalGridSquare = isFree(goalGridSquare);
-
-    if (startGridSquare == goalGridSquare)
-    {
-      isvalid = false;
-      ROS_INFO("startGridSquare equal to goalGridSquare");
-    }
-    else
-    {
-      if (!isFreeStartGridSquare && !isFreeGoalGridSquare)
-      {
-        isvalid = false;
-        if (!isFreeStartGridSquare)
-        {
-          ROS_INFO("Start not free");
-        }
-        else if (!isFreeGoalGridSquare)
-        {
-          ROS_INFO("Goal not free");
-        }
-        
-
-      }
-      else
-      {
-        if (!isFreeStartGridSquare)
-        {
-          isvalid = false;
-          ROS_INFO("Start not free");          
-        }
-        else
-        {
-          if (!isFreeGoalGridSquare)
-          {
-            isvalid = false;
-            ROS_INFO("Goal not free");
-          }
-          else
-          {
-            // if (findFreeNeighborGridSquare(goalGridSquare).size() == 0)
-            // {
-            //   isvalid = false;
-            //   ROS_INFO("No free Neighbor from Goal");
-            // }
-            // else
-            // {
-              if (findFreeNeighborGridSquare(startGridSquare).size() == 0)
-              {
-                isvalid = false;
-                ROS_INFO("No free Neighbor from Start");
-              }
-            // }
-          }
-        }
-      }
-    }
-
-    return isvalid;
-  }
-
-  /**
-    Calculate cost of moving from currentGridSquare to neighbour
-  **/
-  float RRAPlanner::getMoveCost(int i1, int j1, int i2, int j2)
-  {
-    // Start cost with maximum value
-    float moveCost = infinity;
-    
-    // If gridSquare(i2,j2) exists in the diagonal of gridSquare(i1,j1)
-    if ((j2 == j1 + 1 && i2 == i1 + 1) || (i2 == i1 - 1 && j2 == j1 + 1) || (i2 == i1 - 1 && j2 == j1 - 1) || (j2 == j1 - 1 && i2 == i1 + 1))
-    {
-      moveCost = 1.4;
-    }
-    // If gridSquare(i2,j2) exists in the horizontal or vertical line with gridSquare(i1,j1)
-    else
-    {
-      if ((j2 == j1 && i2 == i1 - 1) || (i2 == i1 && j2 == j1 - 1) || (i2 == i1 + 1 && j2 == j1) || (i1 == i2 && j2 == j1 + 1))
-      {
-        moveCost = 1;
-      }
-    }
-
-    return moveCost;
-  }
-
-  /**
-    Calculate cost of moving from currentGridSquare to neighbour
-  **/
-  float RRAPlanner::getMoveCost(int gridSquareIndex1, int gridSquareIndex2)
-  {
-    int i1 = 0, i2 = 0, j1 = 0, j2 = 0;
-
-    i1 = getGridSquareRowIndex(gridSquareIndex1);
-    j1 = getGridSquareColIndex(gridSquareIndex1);
-    i2 = getGridSquareRowIndex(gridSquareIndex2);
-    j2 = getGridSquareColIndex(gridSquareIndex2);
-
-    return getMoveCost(i1, j1, i2, j2);
-  }
-
-  /**
-    Calculate H-Score
-  **/
-  float RRAPlanner::calculateHScore(int gridSquareIndex, int goalGridSquare)
-  {
-    int x1 = getGridSquareRowIndex(goalGridSquare);
-    int y1 = getGridSquareColIndex(goalGridSquare);
-    int x2 = getGridSquareRowIndex(gridSquareIndex);
-    int y2 = getGridSquareColIndex(gridSquareIndex);
-    return abs(x1 - x2) + abs(y1 - y2);
-  }
-
-  /**
-    Calculates the gridSquare index from square coordinates
-  **/
-  int RRAPlanner::calculateGridSquareIndex(int i, int j)
-  {
-    return (i * width) + j;
-  }
-
-  /**
-    Calculates gridSquare row from square index
-  **/
-  int RRAPlanner::getGridSquareRowIndex(int index) //get the row index from gridSquare index
-  {
-    return index / width;
-  }
-
-  /**
-    Calculates gridSquare column from square index
-  **/
-  int RRAPlanner::getGridSquareColIndex(int index) //get column index from gridSquare index
-  {
-    return index % width;
-  }
-
-  /**
-    Checks if gridSquare at (i,j) is free
-  **/
-  bool RRAPlanner::isFree(int i, int j)
-  {
-    int gridSquareIndex = (i * width) + j;
-
-    return occupancyGridMap[gridSquareIndex];
-  }
-
-  /**
-    Checks if gridSquare at index gridSquareIndex is free
-  **/
-  bool RRAPlanner::isFree(int gridSquareIndex)
-  {
-    return occupancyGridMap[gridSquareIndex];
-  }
-
 };
-
-/**
-  Operator for comparing cost among two gridSquares.
-**/
-bool operator<(GridSquare const &c1, GridSquare const &c2) { return c1.fCost < c2.fCost; }
