@@ -346,19 +346,41 @@ namespace rra_local_planner {
     astar_goal.y = (goal_pose.pose.position.y - planner_util_->getCostmap()->getOriginY()) / planner_util_->getCostmap()->getResolution();
     // Gets robot current position
     Pos current_pos;
-    current_pos.x = global_pose.getOrigin().getX();
-    current_pos.y = global_pose.getOrigin().getY();
+    current_pos.x = (global_pose.getOrigin().getX() - planner_util_->getCostmap()->getOriginX()) / planner_util_->getCostmap()->getResolution();
+    current_pos.y = (global_pose.getOrigin().getY() - planner_util_->getCostmap()->getOriginY()) / planner_util_->getCostmap()->getResolution();
 
     // A*
     ROS_INFO("A* goal:    (%f, %f)", (double) astar_goal.x, (double) astar_goal.y);
     ROS_INFO("Robot pos:  (%f, %f)", (double) current_pos.x, (double) current_pos.y);
     AStar::AStar astar;                                                                 // A* handler
     astar.AStarSearch(*(graph), current_pos, astar_goal, came_from, cost_so_far);       // A* method execution
-    std::vector<Pos> path = astar.reconstruct_path(current_pos, astar_goal, came_from); // Util for easier path use
+    std::vector<Pos> local_path = astar.reconstruct_path(current_pos, astar_goal, came_from); // Util for easier path use
+    std::vector<Pos> global_path;
 
-    draw_grid(*graph, 2, nullptr, nullptr, &path);
+    ROS_INFO("Local path:");
+    for (auto pos = local_path.begin(); pos != local_path.end(); pos++)
+    {
+      std::cout << "( " << pos->x << ", " << pos->y << ")->";
+    }
 
-    if (path.size() > 0)
+    for (auto pos = local_path.begin(); pos != local_path.end(); pos++)
+    {
+      Pos global_pos;
+      // (Xg*resolution + Xcostmap, Yg*resolution + Ycostmap)
+      global_pos.x = (pos->x) * (planner_util_->getCostmap()->getResolution()) + planner_util_->getCostmap()->getOriginX();
+      global_pos.y = (pos->y) * (planner_util_->getCostmap()->getResolution()) + planner_util_->getCostmap()->getOriginY();
+      global_path.push_back(global_pos);
+    }
+
+    ROS_INFO("Global path:");
+    for (auto pos = global_path.begin(); pos != global_path.end(); pos++)
+    {
+      std::cout << "( " << pos->x << ", " << pos->y << ")->";
+    }
+
+    draw_grid(*graph, 2, nullptr, nullptr, &local_path);
+
+    if (global_path.size() > 0)
     {
       result_traj_.cost_ = 12;
     }else{
@@ -367,14 +389,9 @@ namespace rra_local_planner {
 
     // result_traj_.cost_ = 12;                                                            // Legacy behaviour maintence
 
-    for (auto pos = path.begin(); pos != path.end(); pos++)
-    {
-      std::cout << "( " << pos->x << ", " << pos->y << ")->";
-    }
-
     // Populating result_traj_ for debugging propose
     result_traj_.resetPoints();
-    for (auto p = path.begin(); p != path.end(); p++)
+    for (auto p = local_path.begin(); p != local_path.end(); p++)
     {
       Pos tempPos;
       tempPos.x = p->x;
@@ -383,28 +400,27 @@ namespace rra_local_planner {
     }
 
     // debrief stateful scoring functions
-    // oscillation_costs_.updateOscillationFlags(pos, &result_traj_, planner_util_->getCurrentLimits().min_trans_vel);
+    oscillation_costs_.updateOscillationFlags(pos, &result_traj_, planner_util_->getCurrentLimits().min_trans_vel);
 
     //if we don't have a legal trajectory, we'll just command zero
-    // if (result_traj_.cost_ < 0) {
-    //   drive_velocities.setIdentity();
-    // } else {
-    //   Pos goal;
-    //   goal.x = (global_plan_.back().pose.position.x - planner_util_->getCostmap()->getOriginX()) * planner_util_->getCostmap()->getResolution();
-    //   goal.y = (global_plan_.back().pose.position.y - planner_util_->getCostmap()->getOriginY()) * planner_util_->getCostmap()->getResolution();
-    //   // int path_index = (int) std::ceil(((double) path.size()) / 2);    
-    //   // goal.x = path[path_index].x;
-    //   // goal.y = path[path_index].y;
+    if (result_traj_.cost_ < 0) {
+      drive_velocities.setIdentity();
+    } else {
+      Pos goal;
+      // goal.x = (global_plan_.back().pose.position.x - planner_util_->getCostmap()->getOriginX()) * planner_util_->getCostmap()->getResolution();
+      // goal.y = (global_plan_.back().pose.position.y - planner_util_->getCostmap()->getOriginY()) * planner_util_->getCostmap()->getResolution();
+      goal.x = global_path[1].x;
+      goal.y = global_path[1].y;
       
-    //   // ROS_INFO("Current: (%f, %f) Goal: (%f, %f)", (double) current_pos.x, (double) current_pos.y, (double) goal.x, (double) goal.y);
-    //   tf::Vector3 start(linear_vel(goal, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), 0.1), 0, 0);
-    //   drive_velocities.setOrigin(start);
+      // ROS_INFO("Current: (%f, %f) Goal: (%f, %f)", (double) current_pos.x, (double) current_pos.y, (double) goal.x, (double) goal.y);
+      tf::Vector3 start(linear_vel(goal, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), 0.1), 0, 0);
+      drive_velocities.setOrigin(start);
 
-    //   tf::Matrix3x3 matrix;
-    //   matrix.setRotation(tf::createQuaternionFromYaw(angular_vel(goal, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), tf::getYaw(global_pose.getRotation()), 1)));
-    //   drive_velocities.setBasis(matrix);
+      tf::Matrix3x3 matrix;
+      matrix.setRotation(tf::createQuaternionFromYaw(angular_vel(goal, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), tf::getYaw(global_pose.getRotation()), 1)));
+      drive_velocities.setBasis(matrix);
 
-    // }
+    }
 
     return result_traj_;
   }
