@@ -54,6 +54,9 @@
 #define Kp 0.1
 #define Ki 0
 
+#define LINEAR_VEL_CONST  0.1
+#define ANGULAR_VEL_CONST 1.0
+
 namespace rra_local_planner {
 
   double euclidian_distance (double goal_x, double goal_y, double current_x, double current_y);
@@ -321,15 +324,15 @@ namespace rra_local_planner {
     // Eigen::Vector3f goal(goal_pose.pose.position.x, goal_pose.pose.position.y, tf::getYaw(goal_pose.pose.orientation));
     base_local_planner::LocalPlannerLimits limits = planner_util_->getCurrentLimits();
 
-    ROS_INFO("global_plan size: %d", (int) global_plan_.size());
-    ROS_INFO("first: (%f, %f) last: (%f, %f))", 
-      global_plan_.back().pose.position.x, 
-      global_plan_.back().pose.position.y, 
-      global_plan_.front().pose.position.x, 
-      global_plan_.front().pose.position.y);
+    // ROS_INFO("global_plan size: %d", (int) global_plan_.size());
+    // ROS_INFO("first: (%f, %f) last: (%f, %f))", 
+    //   global_plan_.back().pose.position.x, 
+    //   global_plan_.back().pose.position.y, 
+    //   global_plan_.front().pose.position.x, 
+    //   global_plan_.front().pose.position.y);
 
-    ROS_INFO("Costmap size: %d x %d", planner_util_->getCostmap()->getSizeInCellsX(), planner_util_->getCostmap()->getSizeInCellsY());
-    ROS_INFO("Costmap resolution: %f ", planner_util_->getCostmap()->getResolution());
+    // ROS_INFO("Costmap size: %d x %d", planner_util_->getCostmap()->getSizeInCellsX(), planner_util_->getCostmap()->getSizeInCellsY());
+    // ROS_INFO("Costmap resolution: %f ", planner_util_->getCostmap()->getResolution());
 
     // Converts Costmap to graph to be used in the A* method
     GridWithWeights* graph = costmapToGrid( planner_util_->getCostmap() );
@@ -359,20 +362,20 @@ namespace rra_local_planner {
     current_pos.y = my;
 
     // A*
-    ROS_INFO("A* goal:    (%f, %f)", (double) astar_goal.x, (double) astar_goal.y);
-    ROS_INFO("Robot pos:  (%f, %f)", (double) current_pos.x, (double) current_pos.y);
+    // ROS_INFO("A* goal:    (%f, %f)", (double) astar_goal.x, (double) astar_goal.y);
+    // ROS_INFO("Robot pos:  (%f, %f)", (double) current_pos.x, (double) current_pos.y);
     AStar::AStar astar;                                                                 // A* handler
     astar.AStarSearch(*(graph), current_pos, astar_goal, came_from, cost_so_far);       // A* method execution
     std::vector<Pos> local_path = astar.reconstruct_path(current_pos, astar_goal, came_from); // Util for easier path use
     std::vector<geometry_msgs::Point> global_path;
 
-    ROS_INFO("Local path:");
+    // ROS_INFO("Local path:");
+    // for (auto pos = local_path.begin(); pos != local_path.end(); pos++)
+    // {
+    //   std::cout << "( " << pos->x << ", " << pos->y << ")->";
+    // }
+    // std::cout << std::endl;
 
-    for (auto pos = local_path.begin(); pos != local_path.end(); pos++)
-    {
-      std::cout << "( " << pos->x << ", " << pos->y << ")->";
-    }
-    std::cout << std::endl;
 
     for (auto pos = local_path.begin(); pos != local_path.end(); pos++)
     {
@@ -387,14 +390,14 @@ namespace rra_local_planner {
 
     }
 
-    ROS_INFO("Global path:");
-    for (auto pos = global_path.begin(); pos != global_path.end(); pos++)
-    {
-      std::cout << "( " << pos->x << ", " << pos->y << ")->";
-    }
-    std::cout << std::endl;
+    // ROS_INFO("Global path:");
+    // for (auto pos = global_path.begin(); pos != global_path.end(); pos++)
+    // {
+    //   std::cout << "( " << pos->x << ", " << pos->y << ")->";
+    // }
+    // std::cout << std::endl;
 
-    draw_grid(*graph, 1, nullptr, nullptr, &local_path);
+    // draw_grid(*graph, 1, nullptr, nullptr, &local_path);
 
     if (global_path.size() > 0)
     {
@@ -430,10 +433,10 @@ namespace rra_local_planner {
     if (result_traj_.cost_ < 0) {
       drive_velocities.setIdentity();
     } else {
-      tf::Vector3 start(linear_vel(global_path.back().x, global_path.back().y, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), 0.1), 0, 0);
+      tf::Vector3 start(linear_vel(global_path.back().x, global_path.back().y, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), LINEAR_VEL_CONST), 0, 0);
       drive_velocities.setOrigin(start);
       tf::Matrix3x3 matrix;
-      matrix.setRotation(tf::createQuaternionFromYaw(angular_vel(global_path.back().x, global_path.back().y, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), tf::getYaw(global_pose.getRotation()), 1)));
+      matrix.setRotation(tf::createQuaternionFromYaw(angular_vel(global_path.back().x, global_path.back().y, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), tf::getYaw(global_pose.getRotation()), ANGULAR_VEL_CONST)));
       drive_velocities.setBasis(matrix);
     }
 
