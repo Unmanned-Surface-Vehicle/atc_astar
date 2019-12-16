@@ -162,6 +162,8 @@ namespace rra_local_planner {
        */
       GridWithWeights* costmapToGrid(costmap_2d::Costmap2D *costmap);
 
+      bool valid_astar_goal(Pos astar_goal);
+
     private:
 
       base_local_planner::LocalPlannerUtil *planner_util_;

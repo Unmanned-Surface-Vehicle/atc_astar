@@ -54,8 +54,9 @@
 #define Kp 0.1
 #define Ki 0
 
-#define LINEAR_VEL_CONST  0.1
-#define ANGULAR_VEL_CONST 1.0
+#define LINEAR_VEL_CONST        0.1
+#define ANGULAR_VEL_CONST       1.0
+#define COSTMAP_COST_ACCEPTANCE 32  // value between 0 and 255
 
 namespace rra_local_planner {
 
@@ -63,7 +64,7 @@ namespace rra_local_planner {
   double linear_vel         (double goal_x, double goal_y, double current_x, double current_y, double constt = 1);
   double angular_vel        (double goal_x, double goal_y, double current_x, double current_y, double self_th, double constt = 1);
   double steering_angle     (double goal_x, double goal_y, double current_x, double current_y);
-
+  // bool valid_astar_goal     (Pos    astar_goal);
 
   void RRAPlanner::reconfigure(RRAPlannerConfig &config)
   {
@@ -362,68 +363,77 @@ namespace rra_local_planner {
     current_pos.y = my;
 
     // A*
-    ROS_INFO("A* goal:    (%f, %f)", (double) astar_goal.x, (double) astar_goal.y);
-    // ROS_INFO("Robot pos:  (%f, %f)", (double) current_pos.x, (double) current_pos.y);
-    AStar::AStar astar;                                                                 // A* handler
-    astar.AStarSearch(*(graph), current_pos, astar_goal, came_from, cost_so_far);       // A* method execution
-    std::cout << "Reconstructing path" << std::endl;
-    std::vector<Pos> local_path = astar.reconstruct_path(current_pos, astar_goal, came_from); // Util for easier path use
-    std::cout << "Finished path reconstruction" << std::endl;
+    // while (!valid_astar_goal(astar_goal))
+    // {
+    //   /* code */
+    // }
+    
     std::vector<geometry_msgs::Point> global_path;
-
-    // ROS_INFO("Local path:");
-    // for (auto pos = local_path.begin(); pos != local_path.end(); pos++)
-    // {
-    //   std::cout << "( " << pos->x << ", " << pos->y << ")->";
-    // }
-    // std::cout << std::endl;
-
-
-    std::cout << "Converting local plan from local coordinations to global cordenates" << std::endl;
-    for (auto pos = local_path.begin(); pos != local_path.end(); pos++)
+    if ( valid_astar_goal(astar_goal) )
     {
+      ROS_INFO("A* goal:    (%f, %f)", (double) astar_goal.x, (double) astar_goal.y);
+      // ROS_INFO("Robot pos:  (%f, %f)", (double) current_pos.x, (double) current_pos.y);
+      AStar::AStar astar;                                                                 // A* handler
+      astar.AStarSearch(*(graph), current_pos, astar_goal, came_from, cost_so_far);       // A* method execution
+      std::cout << "Reconstructing path" << std::endl;
+      std::vector<Pos> local_path = astar.reconstruct_path(current_pos, astar_goal, came_from); // Util for easier path use
+      std::cout << "Finished path reconstruction" << std::endl;
+      // std::vector<geometry_msgs::Point> global_path;
 
-      geometry_msgs::Point global_pos;
-      // // (Xg*resolution + Xcostmap, Yg*resolution + Ycostmap)
-      planner_util_->getCostmap()->mapToWorld(  pos->x, 
-                                                pos->y, 
-                                                global_pos.x, 
-                                                global_pos.y);
-      global_path.push_back(global_pos);
+      // ROS_INFO("Local path:");
+      // for (auto pos = local_path.begin(); pos != local_path.end(); pos++)
+      // {
+      //   std::cout << "( " << pos->x << ", " << pos->y << ")->";
+      // }
+      // std::cout << std::endl;
 
-    }
-    std::cout << "Finished conversion" << std::endl;
 
-    // ROS_INFO("Global path:");
-    // for (auto pos = global_path.begin(); pos != global_path.end(); pos++)
-    // {
-    //   std::cout << "( " << pos->x << ", " << pos->y << ")->";
-    // }
-    // std::cout << std::endl;
+      std::cout << "Converting local plan from local coordinations to global cordenates" << std::endl;
+      for (auto pos = local_path.begin(); pos != local_path.end(); pos++)
+      {
 
-    std::cout << "Drawing cenario" << std::endl;
-    draw_grid(*graph, 2, nullptr, nullptr, &local_path);
-    std::cout << "Finished drawing" << std::endl;
+        geometry_msgs::Point global_pos;
+        // // (Xg*resolution + Xcostmap, Yg*resolution + Ycostmap)
+        planner_util_->getCostmap()->mapToWorld(  pos->x, 
+                                                  pos->y, 
+                                                  global_pos.x, 
+                                                  global_pos.y);
+        global_path.push_back(global_pos);
 
-    if (global_path.size() > 0)
-    {
+      }
+      std::cout << "Finished conversion" << std::endl;
+
+      // ROS_INFO("Global path:");
+      // for (auto pos = global_path.begin(); pos != global_path.end(); pos++)
+      // {
+      //   std::cout << "( " << pos->x << ", " << pos->y << ")->";
+      // }
+      // std::cout << std::endl;
+
+      std::cout << "Drawing cenario" << std::endl;
+      draw_grid(*graph, 2, nullptr, nullptr, &local_path);
+      std::cout << "Finished drawing" << std::endl;
+
       result_traj_.cost_ = 12;
+
+      // Populating result_traj_ for debugging propose
+      result_traj_.resetPoints();
+      for (auto p = global_path.begin(); p != global_path.end(); p++)
+      {
+        result_traj_.addPoint(p->x, p->y, steering_angle(p->x, p->y, global_pose.getOrigin().getX(), global_pose.getOrigin().getX()));
+      }
+
+      Eigen::Vector3f pos(global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), tf::getYaw(global_pose.getRotation()));
+      // debrief stateful scoring functions
+      oscillation_costs_.updateOscillationFlags(pos, &result_traj_, planner_util_->getCurrentLimits().min_trans_vel);
+
     }else{
       result_traj_.cost_ = -7;
     }
 
     // result_traj_.cost_ = 12;                                                            // Legacy behaviour maintence
 
-    // Populating result_traj_ for debugging propose
-    result_traj_.resetPoints();
-    for (auto p = global_path.begin(); p != global_path.end(); p++)
-    {
-      result_traj_.addPoint(p->x, p->y, steering_angle(p->x, p->y, global_pose.getOrigin().getX(), global_pose.getOrigin().getX()));
-    }
-
-    Eigen::Vector3f pos(global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), tf::getYaw(global_pose.getRotation()));
-    // debrief stateful scoring functions
-    oscillation_costs_.updateOscillationFlags(pos, &result_traj_, planner_util_->getCurrentLimits().min_trans_vel);
+    
 
     // if we don't have a legal trajectory, we'll just command zero
     // if (result_traj_.cost_ < 0) {
@@ -495,7 +505,7 @@ namespace rra_local_planner {
     {
       for (size_t i = 0; i < costmap->getSizeInCellsX(); i++)
       {
-        if ( costmap->getCost(i, j) > 1)
+        if ( costmap->getCost(i, j) > COSTMAP_COST_ACCEPTANCE)
         {
           auxPosi.x = i;
           auxPosi.y = j;
@@ -508,5 +518,11 @@ namespace rra_local_planner {
     return grid_p;
 
   };
+
+  bool RRAPlanner::valid_astar_goal(Pos astar_goal){
+
+    return planner_util_->getCostmap()->getCost(astar_goal.x, astar_goal.y) <= COSTMAP_COST_ACCEPTANCE;
+
+  }
 
 };

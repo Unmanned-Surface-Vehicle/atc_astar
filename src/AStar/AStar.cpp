@@ -63,40 +63,38 @@ namespace AStar
     while ( current != start )
     {
       path.push_back(current);
-      if( (current.x == 0) && (current.y == 0) ){
-          Pos aux;
-          aux.x = 1.0;
-          aux.y = 1.0;
-          current = aux;
-      }
 
-      std::cout << "Current: (" << current.x << ", "  << current.y  << ")" << std::endl;
-      std::cout << "Start: ("   << start.x << ", "    << start.y    << ")" << std::endl;
+      // std::cout << "Current: (" << current.x << ", "  << current.y  << ")" << std::endl;
+      // std::cout << "Start: ("   << start.x << ", "    << start.y    << ")" << std::endl;
 
-      std::unordered_map<Pos, Pos>::const_iterator got = came_from.find (current);
-      if ( got == came_from.end() ){
-        std::cout << "not found" << std::endl;
-        std::cout << "Came from size: " << came_from.size() << std::endl;
-        std::cout << "Came from:" << std::endl;
-        int counter = 0;
-        for (auto i = came_from.begin(); i != came_from.end(); i++)
-        {
-          std::cout << counter << ": (" << (*i).first.x << ", " << (*i).first.y << ")" << std::endl;
-          counter++;
-        }
+      // std::unordered_map<Pos, Pos>::const_iterator got = came_from.find (current);
+      // if ( got == came_from.end() ){
 
-        if (current.x == 0)
-        {
-          current.y++;
-        } 
-        if (current.y == 0)
-        {
-          current.x++;
-        }
+      //   std::cout << "not found" << std::endl;
 
-      }else{
-        current = came_from[current];
-      }        
+      //   std::cout << "Came from size: " << came_from.size() << std::endl;
+      //   std::cout << "Came from:" << std::endl;
+      //   int counter = 0;
+      //   for (auto i = came_from.begin(); i != came_from.end(); i++)
+      //   {
+      //     std::cout << counter << ": (" << (*i).first.x << ", " << (*i).first.y << ")" << std::endl;
+      //     counter++;
+      //   }
+
+      //   if (current.x == 0)
+      //   {
+      //     current.y++;
+      //   } 
+      //   if (current.y == 0)
+      //   {
+      //     current.x++;
+      //   }
+
+      // }else{
+      //   current = came_from[current];
+      // }        
+
+      current = came_from[current];
 
     }
     std::cout << "Came from size: " << came_from.size() << std::endl;
