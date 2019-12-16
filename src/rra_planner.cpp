@@ -54,9 +54,10 @@
 #define Kp 0.1
 #define Ki 0
 
-#define LINEAR_VEL_CONST        0.1
-#define ANGULAR_VEL_CONST       1.0
-#define COSTMAP_COST_ACCEPTANCE 32  // value between 0 and 255
+#define LINEAR_VEL_CONST              0.1
+#define ANGULAR_VEL_CONST             1.0
+#define COSTMAP_FREE_ACCEPTANCE       16  // value between 0 and 255
+#define COSTMAP_OCCUPANCE_ACCEPTANCE  64  // value between 0 and 255
 
 namespace rra_local_planner {
 
@@ -505,13 +506,19 @@ namespace rra_local_planner {
     {
       for (size_t i = 0; i < costmap->getSizeInCellsX(); i++)
       {
-        if ( costmap->getCost(i, j) > COSTMAP_COST_ACCEPTANCE)
+        if ( costmap->getCost(i, j) >= COSTMAP_OCCUPANCE_ACCEPTANCE)
         {
           auxPosi.x = i;
           auxPosi.y = j;
           grid_p->walls.insert(auxPosi);
           // ROS_INFO("Pos (%d, %d) - cost: %f", i, j, (double) costmap->getCost((int)i, (int)j));
-        }
+        }else if ( costmap->getCost(i, j) >= COSTMAP_FREE_ACCEPTANCE)
+        {
+          auxPosi.x = i;
+          auxPosi.y = j;
+          grid_p->forests.insert(auxPosi);
+          // ROS_INFO("Pos (%d, %d) - cost: %f", i, j, (double) costmap->getCost((int)i, (int)j));
+        } 
       }
     }
 
@@ -521,7 +528,7 @@ namespace rra_local_planner {
 
   bool RRAPlanner::valid_astar_goal(Pos astar_goal){
 
-    return planner_util_->getCostmap()->getCost(astar_goal.x, astar_goal.y) <= COSTMAP_COST_ACCEPTANCE;
+    return planner_util_->getCostmap()->getCost(astar_goal.x, astar_goal.y) < COSTMAP_OCCUPANCE_ACCEPTANCE;
 
   }
 
