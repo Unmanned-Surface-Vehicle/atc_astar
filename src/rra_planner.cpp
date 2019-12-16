@@ -331,8 +331,8 @@ namespace rra_local_planner {
     //   global_plan_.front().pose.position.x, 
     //   global_plan_.front().pose.position.y);
 
-    // ROS_INFO("Costmap size: %d x %d", planner_util_->getCostmap()->getSizeInCellsX(), planner_util_->getCostmap()->getSizeInCellsY());
-    // ROS_INFO("Costmap resolution: %f ", planner_util_->getCostmap()->getResolution());
+    ROS_INFO("Costmap size: %d x %d", planner_util_->getCostmap()->getSizeInCellsX(), planner_util_->getCostmap()->getSizeInCellsY());
+    ROS_INFO("Costmap resolution: %f ", planner_util_->getCostmap()->getResolution());
 
     // Converts Costmap to graph to be used in the A* method
     GridWithWeights* graph = costmapToGrid( planner_util_->getCostmap() );
@@ -362,11 +362,13 @@ namespace rra_local_planner {
     current_pos.y = my;
 
     // A*
-    // ROS_INFO("A* goal:    (%f, %f)", (double) astar_goal.x, (double) astar_goal.y);
+    ROS_INFO("A* goal:    (%f, %f)", (double) astar_goal.x, (double) astar_goal.y);
     // ROS_INFO("Robot pos:  (%f, %f)", (double) current_pos.x, (double) current_pos.y);
     AStar::AStar astar;                                                                 // A* handler
     astar.AStarSearch(*(graph), current_pos, astar_goal, came_from, cost_so_far);       // A* method execution
+    std::cout << "Reconstructing path" << std::endl;
     std::vector<Pos> local_path = astar.reconstruct_path(current_pos, astar_goal, came_from); // Util for easier path use
+    std::cout << "Finished path reconstruction" << std::endl;
     std::vector<geometry_msgs::Point> global_path;
 
     // ROS_INFO("Local path:");
@@ -377,6 +379,7 @@ namespace rra_local_planner {
     // std::cout << std::endl;
 
 
+    std::cout << "Converting local plan from local coordinations to global cordenates" << std::endl;
     for (auto pos = local_path.begin(); pos != local_path.end(); pos++)
     {
 
@@ -389,6 +392,7 @@ namespace rra_local_planner {
       global_path.push_back(global_pos);
 
     }
+    std::cout << "Finished conversion" << std::endl;
 
     // ROS_INFO("Global path:");
     // for (auto pos = global_path.begin(); pos != global_path.end(); pos++)
@@ -397,7 +401,9 @@ namespace rra_local_planner {
     // }
     // std::cout << std::endl;
 
-    // draw_grid(*graph, 1, nullptr, nullptr, &local_path);
+    std::cout << "Drawing cenario" << std::endl;
+    draw_grid(*graph, 2, nullptr, nullptr, &local_path);
+    std::cout << "Finished drawing" << std::endl;
 
     if (global_path.size() > 0)
     {

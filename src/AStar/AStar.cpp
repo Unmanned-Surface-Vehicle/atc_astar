@@ -44,6 +44,7 @@ namespace AStar
     }
 
     std::cout << "Finished A* Search" << std::endl;
+    std::cout << "Start: (" << start.x << ", " << start.y << ")" << std::endl;
 
   }
 
@@ -55,10 +56,50 @@ namespace AStar
       
     std::vector<Pos> path;
     Pos current = goal;
-    while (current != start) {
+
+    std::cout << "Goal: (" << goal.x << ", " << goal.y << ")" << std::endl;
+
+    // while ( (current != start) && ((current.x != 0) && (current.y !=0)) )
+    while ( current != start )
+    {
       path.push_back(current);
-      current = came_from[current];
+      if( (current.x == 0) && (current.y == 0) ){
+          Pos aux;
+          aux.x = 1.0;
+          aux.y = 1.0;
+          current = aux;
+      }
+
+      std::cout << "Current: (" << current.x << ", "  << current.y  << ")" << std::endl;
+      std::cout << "Start: ("   << start.x << ", "    << start.y    << ")" << std::endl;
+
+      std::unordered_map<Pos, Pos>::const_iterator got = came_from.find (current);
+      if ( got == came_from.end() ){
+        std::cout << "not found" << std::endl;
+        std::cout << "Came from size: " << came_from.size() << std::endl;
+        std::cout << "Came from:" << std::endl;
+        int counter = 0;
+        for (auto i = came_from.begin(); i != came_from.end(); i++)
+        {
+          std::cout << counter << ": (" << (*i).first.x << ", " << (*i).first.y << ")" << std::endl;
+          counter++;
+        }
+
+        if (current.x == 0)
+        {
+          current.y++;
+        } 
+        if (current.y == 0)
+        {
+          current.x++;
+        }
+
+      }else{
+        current = came_from[current];
+      }        
+
     }
+    std::cout << "Came from size: " << came_from.size() << std::endl;
     path.push_back(start); // optional
     std::reverse(path.begin(), path.end());
     return path;
