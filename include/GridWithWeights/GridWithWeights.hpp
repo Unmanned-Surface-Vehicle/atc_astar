@@ -7,8 +7,8 @@ struct GridWithWeights: SquareGrid {
   std::unordered_set<Pos> forests;
   GridWithWeights(int w, int h): SquareGrid(w, h) {}
   double cost(Pos from_node, Pos to_node) const {
-    return 1; //forests.find(to_node) != forests.end()? 5 : 1;
-    // forests.find(to_node) != forests.end()? 5 : 1;
+    // return 1; //forests.find(to_node) != forests.end()? 5 : 1;
+    return forests.find(to_node) != forests.end()? 5 : 1;
   }
 };
 
@@ -20,7 +20,7 @@ inline void draw_grid(const GridWithWeights& grid, int field_width,
                std::unordered_map<Pos, double>* distances=nullptr,
                std::unordered_map<Pos, Pos>* point_to=nullptr,
                std::vector<Pos>* path=nullptr) {
-  for (int y = 0; y != grid.height; ++y) {
+  for (int y = grid.height; y != 0; --y) {
     for (int x = 0; x != grid.width; ++x) {
       Pos id {x, y};
       std::cout << std::left << std::setw(field_width);
@@ -50,6 +50,45 @@ inline void draw_grid(const GridWithWeights& grid, int field_width,
     std::cout << '\n';
   }
 }
+
+// // This outputs a grid. Pass in a distances map if you want to print
+// // the distances, or pass in a point_to map if you want to print
+// // arrows that point to the parent location, or pass in a path vector
+// // if you want to draw the path.
+// inline void draw_grid(const GridWithWeights& grid, int field_width,
+//                std::unordered_map<Pos, double>* distances=nullptr,
+//                std::unordered_map<Pos, Pos>* point_to=nullptr,
+//                std::vector<Pos>* path=nullptr) {
+//   for (int y = 0; y != grid.height; ++y) {
+//     for (int x = 0; x != grid.width; ++x) {
+//       Pos id {x, y};
+//       std::cout << std::left << std::setw(field_width);
+//       if (grid.walls.find(id) != grid.walls.end()) {
+//         std::cout << std::string(field_width, '#');
+//       } else if (point_to != nullptr && point_to->count(id)) {
+//         Pos next = (*point_to)[id];
+//         if (next.x == x + 1) { std::cout << "> "; }
+//         else if (next.x == x - 1) { std::cout << "< "; }
+//         else if (next.y == y + 1) { std::cout << "v "; }
+//         else if (next.y == y - 1) { std::cout << "^ "; }
+//         else { std::cout << "* "; }
+//       } else if (distances != nullptr && distances->count(id)) {
+//         std::cout << (*distances)[id];
+//       } else if (grid.forests.find(id) != grid.forests.end()) {
+//           if (path != nullptr && find(path->begin(), path->end(), id) != path->end()) {
+//             std::cout << std::string(field_width, '&');
+//           } else {
+//             std::cout << std::string(field_width, '%');
+//           }
+//       } else if (path != nullptr && find(path->begin(), path->end(), id) != path->end()){
+//         std::cout << '@';
+//       } else {
+//         std::cout << '.';
+//       }
+//     }
+//     std::cout << '\n';
+//   }
+// }
 
 // // This outputs a grid. Pass in a distances map if you want to print
 // // the distances, or pass in a point_to map if you want to print
