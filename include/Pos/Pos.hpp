@@ -8,6 +8,7 @@ struct Pos{
 	int x;
 	int y;
 	int th;
+	double cost;
 };
 
 // Comparison method for Pos struct

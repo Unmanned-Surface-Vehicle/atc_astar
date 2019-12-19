@@ -54,10 +54,12 @@
 #define Kp 0.1
 #define Ki 0
 
-#define LINEAR_VEL_CONST              0.1
-#define ANGULAR_VEL_CONST             1.0
-#define COSTMAP_FREE_ACCEPTANCE       16  // value between 0 and 255
-#define COSTMAP_OCCUPANCE_ACCEPTANCE  64  // value between 0 and 255
+#define LINEAR_VEL_CONST              0.075 // Propor
+#define ANGULAR_VEL_CONST             00.5
+#define COSTMAP_FREE_ACCEPTANCE       0001 // value between 0 and 255
+#define COSTMAP_OCCUPANCE_ACCEPTANCE  0250 // value between 0 and 255
+#define POSE_TO_FOLLOW                35
+
 
 namespace rra_local_planner {
 
@@ -450,10 +452,10 @@ namespace rra_local_planner {
     if (result_traj_.cost_ < 0) {
       drive_velocities.setIdentity();
     } else {
-      tf::Vector3 start(linear_vel(global_path.back().x, global_path.back().y, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), LINEAR_VEL_CONST), 0, 0);
+      tf::Vector3 start(linear_vel(global_path[POSE_TO_FOLLOW].x, global_path[POSE_TO_FOLLOW].y, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), LINEAR_VEL_CONST), 0, 0);
       drive_velocities.setOrigin(start);
       tf::Matrix3x3 matrix;
-      matrix.setRotation(tf::createQuaternionFromYaw(angular_vel(global_path.back().x, global_path.back().y, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), tf::getYaw(global_pose.getRotation()), ANGULAR_VEL_CONST)));
+      matrix.setRotation(tf::createQuaternionFromYaw(angular_vel(global_path[POSE_TO_FOLLOW].x, global_path[POSE_TO_FOLLOW].y, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), tf::getYaw(global_pose.getRotation()), ANGULAR_VEL_CONST)));
       drive_velocities.setBasis(matrix);
     }
 
@@ -516,6 +518,7 @@ namespace rra_local_planner {
         {
           auxPosi.x = i;
           auxPosi.y = j;
+          auxPosi.cost = costmap->getCost(i, j);
           grid_p->forests.insert(auxPosi);
           // ROS_INFO("Pos (%d, %d) - cost: %f", i, j, (double) costmap->getCost((int)i, (int)j));
         } 

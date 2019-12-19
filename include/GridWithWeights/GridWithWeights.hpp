@@ -9,6 +9,7 @@ struct GridWithWeights: SquareGrid {
   double cost(Pos from_node, Pos to_node) const {
     // return 1; //forests.find(to_node) != forests.end()? 5 : 1;
     return forests.find(to_node) != forests.end()? 5 : 1;
+    // return forests.find(to_node) != forests.end()? to_node.cost : 1;
   }
 };
 
