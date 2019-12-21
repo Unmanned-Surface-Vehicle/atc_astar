@@ -61,6 +61,7 @@
 #include <base_local_planner/simple_scored_sampling_planner.h>
 
 #include <nav_msgs/Path.h>
+#include <nav_msgs/Odometry.h>
 
 #include "../../include/AStar/Astar.h"
 // #include "../AStar/Astar.h"
@@ -163,6 +164,8 @@ namespace rra_local_planner {
       GridWithWeights* costmapToGrid(costmap_2d::Costmap2D *costmap);
 
       bool valid_astar_goal(Pos astar_goal);
+      std::vector<geometry_msgs::Point> artificial_terrain_cost(geometry_msgs::Point otherVesselPos);
+      void usv_state_callback(const nav_msgs::Odometry::ConstPtr& usv_position_msg);
 
     private:
 
@@ -200,6 +203,10 @@ namespace rra_local_planner {
       base_local_planner::TwirlingCostFunction twirling_costs_;
 
       base_local_planner::SimpleScoredSamplingPlanner scored_sampling_planner_;
+
+      ros::Publisher ais_pub_;
+      ros::Subscriber other_vessel_sub_;
+      geometry_msgs::Point other_vessel_pos_;
   };
 };
 #endif

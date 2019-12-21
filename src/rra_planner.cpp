@@ -48,17 +48,21 @@
 
 #include <pcl_conversions/pcl_conversions.h>
 
+#include "sensor_msgs/LaserScan.h"
+#include "geometry_msgs/Point.h"
+
 // #include <math.h>       /* atan */
 
 #define PI 3.14159265
 #define Kp 0.1
 #define Ki 0
 
-#define LINEAR_VEL_CONST              0.075 // Propor
-#define ANGULAR_VEL_CONST             00.5
-#define COSTMAP_FREE_ACCEPTANCE       0001 // value between 0 and 255
-#define COSTMAP_OCCUPANCE_ACCEPTANCE  0250 // value between 0 and 255
-#define POSE_TO_FOLLOW                35
+#define LINEAR_VEL_CONST              0.075 // 0.1   // 0.075 // Propor
+#define ANGULAR_VEL_CONST             00.35 // 0.45  // 00.35
+#define COSTMAP_FREE_ACCEPTANCE       00001 // 00001 // 00001 // value between 0 and 255
+#define COSTMAP_OCCUPANCE_ACCEPTANCE  00253 // 00253 // 00253 // value between 0 and 255
+#define POSE_TO_FOLLOW                00020 // 00035 // 00035
+#define ARTIFICIAL_TERRAIN_COST_SIZE  100
 
 
 namespace rra_local_planner {
@@ -68,6 +72,7 @@ namespace rra_local_planner {
   double angular_vel        (double goal_x, double goal_y, double current_x, double current_y, double self_th, double constt = 1);
   double steering_angle     (double goal_x, double goal_y, double current_x, double current_y);
   // bool valid_astar_goal     (Pos    astar_goal);
+  // std::vector<Pos> artificial_terrain_cost(Pos otherVesselPos);
 
   void RRAPlanner::reconfigure(RRAPlannerConfig &config)
   {
@@ -149,6 +154,12 @@ namespace rra_local_planner {
 
     goal_front_costs_.setStopOnFailure( false );
     alignment_costs_.setStopOnFailure( false );
+
+    ais_pub_            = private_nh.advertise<sensor_msgs::LaserScan>("/diffboat1/ais", 1);
+    other_vessel_sub_   = private_nh.subscribe("/diffboat2/state", 1, &RRAPlanner::usv_state_callback, this);
+    
+    // other_vessel_sub_   = private_nh.subscribe("/diffboat2/state", 1, boost::bind( &RRAPlanner::usv_state_callback, this, _1));
+    // other_vessel_sub_   = private_nh.subscribe("/diffboat2/state", 10, usv_state_callback);
 
     //Assuming this planner is being run within the navigation stack, we can
     //just do an upward search for the frequency at which its being run. This
@@ -338,6 +349,89 @@ namespace rra_local_planner {
     ROS_INFO("Costmap size: %d x %d", planner_util_->getCostmap()->getSizeInCellsX(), planner_util_->getCostmap()->getSizeInCellsY());
     ROS_INFO("Costmap resolution: %f ", planner_util_->getCostmap()->getResolution());
 
+    // ros::Publisher  fake_ais_pub = private_nh.advertise<sensor_msgs::LaserScan>("/diffboat1/ais", 10); // Declaration of ROS topic and creation of a publishing handler for fake ais
+
+    sensor_msgs::LaserScan ais_msg;
+    // USV Mision Planner position goal command message
+    ais_msg.header.stamp    = ros::Time::now();
+    ais_msg.header.frame_id = "diffboat1/base_laser";
+    ais_msg.angle_min = - PI / 2;
+    ais_msg.angle_max = PI / 2;
+    ais_msg.angle_increment = PI / 180;
+    ais_msg.time_increment = 0.0;
+    ais_msg.scan_time = 0.0;
+    ais_msg.range_min = 0.005;
+    ais_msg.range_max = 200;
+
+    ROS_WARN("range size: %d", ais_msg.ranges.size());
+
+    // float dist[(int)((ais_msg.angle_max - ais_msg.angle_min) * 180 / PI)] = {0};
+    int ranges_size = (int)((ais_msg.angle_max - ais_msg.angle_min) * 180 / PI);
+    std::vector<float> dist(ranges_size, 0.0);
+
+    // double angle_rad = atan2( goal_y - self_y, goal_x - self_x);
+    // int angle_deg = angle_rad * 180 / PI;
+    // dist[angle_deg + (ranges_size)/2] = euclidian_distance();
+
+    // ais_msg.ranges = dist;
+    
+
+    // Artificial Terrain Cost for COLREGS-COMPLIANCE
+    geometry_msgs::Point diff2_pos;
+    // diff2_pos.x = 6;
+    // diff2_pos.y = 4;
+    diff2_pos = other_vessel_pos_;
+    std::vector<geometry_msgs::Point> artificial_terrain = artificial_terrain_cost(diff2_pos);
+
+    // std::cout << "Artificial Terrain: " << std::endl;
+    // for (auto pos = artificial_terrain.end()-1; pos != artificial_terrain.begin(); pos--)
+    // {
+    //   std::cout << "( " << pos->x << ", " << pos->y << " )" << std::endl;
+    // }
+
+    int mx, my, self_x, self_y;
+    // unsigned short int global_path_index_to_follow = 0;
+    // global_path_index_to_follow = global_plan_.size() >= POSE_TO_FOLLOW ? POSE_TO_FOLLOW : global_plan_.size() -1;
+    planner_util_->getCostmap()->worldToMapEnforceBounds(   global_pose.getOrigin().getX(), 
+                                                            global_pose.getOrigin().getY(), 
+                                                            self_x, 
+                                                            self_y);
+    // planner_util_->getCostmap()->worldToMapEnforceBounds(   global_plan_[global_path_index_to_follow].pose.position.x, 
+    //                                                         global_plan_[global_path_index_to_follow].pose.position.y, 
+    //                                                         mx, 
+    //                                                         my);
+
+    for (auto pos = artificial_terrain.begin(); pos != artificial_terrain.end(); pos++)
+    {
+
+      planner_util_->getCostmap()->worldToMapEnforceBounds( pos->x, 
+                                                            pos->y, 
+                                                            mx, 
+                                                            my);
+
+      double angle_rad = atan2( my - self_y, mx - self_x);      // discover obstacle position in laser scan
+      int angle_deg = angle_rad * 180 / PI;                     // rad to degree
+
+      int index = angle_deg + (ranges_size) / 2;                // correction to be between 0 and ranges_size
+      
+      index = index < (ranges_size) ? index : ranges_size - 1;  // avoiding segmentation fault
+      dist[index] = euclidian_distance(mx, my, self_x, self_y); // laser intensity (obstacle position)
+
+      // planner_util_->getCostmap()->worldToMapEnforceBounds( pos->x, 
+      //                                                       pos->y, 
+      //                                                       mx, 
+      //                                                       my);
+
+      // ROS_INFO("Before set (%d, %d): %d", mx, my, planner_util_->getCostmap()->getCost(mx, my));
+      planner_util_->getCostmap()->setCost(mx, my, (unsigned char)255);
+      // ROS_INFO("After set (%d, %d): %d", mx, my, planner_util_->getCostmap()->getCost(mx, my));
+    }
+
+    ais_msg.ranges = dist;
+    ROS_WARN("range size: %d", ais_msg.ranges.size());
+    ais_pub_.publish(ais_msg);
+    
+
     // Converts Costmap to graph to be used in the A* method
     GridWithWeights* graph = costmapToGrid( planner_util_->getCostmap() );
 
@@ -345,7 +439,7 @@ namespace rra_local_planner {
     std::unordered_map<Pos, Pos>    came_from;                                // Path
     std::unordered_map<Pos, double> cost_so_far;                              // A*'s exploration phase util
 
-    int mx, my;
+    
 
     // Gets closer global plan position in local frame reference
     Pos astar_goal;
@@ -358,10 +452,16 @@ namespace rra_local_planner {
 
     // Gets robot current position in local frame reference
     Pos current_pos;
+    // unsigned short int global_path_index_to_follow = 0;
+    // global_path_index_to_follow = global_plan_.size() >= POSE_TO_FOLLOW ? POSE_TO_FOLLOW : global_plan_.size() -1;
     planner_util_->getCostmap()->worldToMapEnforceBounds(   global_pose.getOrigin().getX(), 
                                                             global_pose.getOrigin().getY(), 
                                                             mx, 
                                                             my);
+    // planner_util_->getCostmap()->worldToMapEnforceBounds(   global_plan_[global_path_index_to_follow].pose.position.x, 
+    //                                                         global_plan_[global_path_index_to_follow].pose.position.y, 
+    //                                                         mx, 
+    //                                                         my);
     current_pos.x = mx;
     current_pos.y = my;
 
@@ -371,7 +471,7 @@ namespace rra_local_planner {
     //   /* code */
     // }
     
-    std::vector<geometry_msgs::Point> global_path;
+    std::vector<geometry_msgs::Point> local_path_at_global_frame;
     if ( valid_astar_goal(astar_goal) )
     {
       ROS_INFO("A* goal:    (%f, %f)", (double) astar_goal.x, (double) astar_goal.y);
@@ -381,7 +481,7 @@ namespace rra_local_planner {
       std::cout << "Reconstructing path" << std::endl;
       std::vector<Pos> local_path = astar.reconstruct_path(current_pos, astar_goal, came_from); // Util for easier path use
       std::cout << "Finished path reconstruction" << std::endl;
-      // std::vector<geometry_msgs::Point> global_path;
+      // std::vector<geometry_msgs::Point> local_path_at_global_frame;
 
       // ROS_INFO("Local path:");
       // for (auto pos = local_path.begin(); pos != local_path.end(); pos++)
@@ -401,13 +501,13 @@ namespace rra_local_planner {
                                                   pos->y, 
                                                   global_pos.x, 
                                                   global_pos.y);
-        global_path.push_back(global_pos);
+        local_path_at_global_frame.push_back(global_pos);
 
       }
       std::cout << "Finished conversion" << std::endl;
 
       // ROS_INFO("Global path:");
-      // for (auto pos = global_path.begin(); pos != global_path.end(); pos++)
+      // for (auto pos = local_path_at_global_frame.begin(); pos != local_path_at_global_frame.end(); pos++)
       // {
       //   std::cout << "( " << pos->x << ", " << pos->y << ")->";
       // }
@@ -421,7 +521,7 @@ namespace rra_local_planner {
 
       // Populating result_traj_ for debugging propose
       result_traj_.resetPoints();
-      for (auto p = global_path.begin(); p != global_path.end(); p++)
+      for (auto p = local_path_at_global_frame.begin(); p != local_path_at_global_frame.end(); p++)
       {
         result_traj_.addPoint(p->x, p->y, steering_angle(p->x, p->y, global_pose.getOrigin().getX(), global_pose.getOrigin().getX()));
       }
@@ -449,14 +549,40 @@ namespace rra_local_planner {
     //   drive_velocities.setBasis(matrix);
     // }
 
-    if (result_traj_.cost_ < 0) {
+    // Creates cmd_vel populating drive_velocities with translation and rotation matrixes
+    unsigned short int local_path_index_to_follow = 0;
+    local_path_index_to_follow = local_path_at_global_frame.size() >= POSE_TO_FOLLOW ? POSE_TO_FOLLOW : local_path_at_global_frame.size() -1;
+    if (result_traj_.cost_ < 0)
+    {
+
       drive_velocities.setIdentity();
+
     } else {
-      tf::Vector3 start(linear_vel(global_path[POSE_TO_FOLLOW].x, global_path[POSE_TO_FOLLOW].y, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), LINEAR_VEL_CONST), 0, 0);
+
+      tf::Vector3 start(
+                        linear_vel(
+                                    local_path_at_global_frame[local_path_index_to_follow].x, 
+                                    local_path_at_global_frame[local_path_index_to_follow].y, 
+                                    global_pose.getOrigin().getX(), 
+                                    global_pose.getOrigin().getY(), 
+                                    LINEAR_VEL_CONST
+                                  ), 
+                        0, 
+                        0);
       drive_velocities.setOrigin(start);
+
       tf::Matrix3x3 matrix;
-      matrix.setRotation(tf::createQuaternionFromYaw(angular_vel(global_path[POSE_TO_FOLLOW].x, global_path[POSE_TO_FOLLOW].y, global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), tf::getYaw(global_pose.getRotation()), ANGULAR_VEL_CONST)));
+      matrix.setRotation(
+                          tf::createQuaternionFromYaw(
+                                                      angular_vel(local_path_at_global_frame[local_path_index_to_follow].x, 
+                                                      local_path_at_global_frame[local_path_index_to_follow].y, global_pose.getOrigin().getX(), 
+                                                      global_pose.getOrigin().getY(), 
+                                                      tf::getYaw(global_pose.getRotation()), 
+                                                      ANGULAR_VEL_CONST)
+                                                      )
+                        );
       drive_velocities.setBasis(matrix);
+
     }
 
     return result_traj_;
@@ -485,13 +611,13 @@ namespace rra_local_planner {
 
   double steering_angle(double goal_x, double goal_y, double self_x, double self_y){
     double angle = atan2( goal_y - self_y, goal_x - self_x);
+  
+    // if (angle >= PI)
+    // {
+    //   angle = angle - 2 * PI;
+    // }
 
-    if (angle > PI)
-    {
-      angle = angle - 2 * PI;
-    }
-
-    // ROS_INFO("Wanted pos: (%f, %f)\nCurrent pos: (%f, %f)\nSteering Angle: %f", goal_pos.x, goal_pos.y, self_x, self_y, angle);
+    ROS_INFO("Wanted pos: (%f, %f)\nCurrent pos: (%f, %f)\nSteering Angle: %f", goal_x, goal_y, self_x, self_y, angle);
 
     return angle;
     // return atan2((double) goal_pos.y, (double) goal_pos.x) - atan2((double) goal_pos.y, (double) goal_pos.x);
@@ -508,13 +634,13 @@ namespace rra_local_planner {
     {
       for (size_t i = 0; i < costmap->getSizeInCellsX(); i++)
       {
-        if ( costmap->getCost(i, j) >= COSTMAP_OCCUPANCE_ACCEPTANCE)
+        if ( costmap->getCost(i, j) > COSTMAP_OCCUPANCE_ACCEPTANCE)
         {
           auxPosi.x = i;
           auxPosi.y = j;
           grid_p->walls.insert(auxPosi);
           // ROS_INFO("Pos (%d, %d) - cost: %f", i, j, (double) costmap->getCost((int)i, (int)j));
-        }else if ( costmap->getCost(i, j) >= COSTMAP_FREE_ACCEPTANCE)
+        }else if ( costmap->getCost(i, j) > COSTMAP_FREE_ACCEPTANCE)
         {
           auxPosi.x = i;
           auxPosi.y = j;
@@ -531,7 +657,32 @@ namespace rra_local_planner {
 
   bool RRAPlanner::valid_astar_goal(Pos astar_goal){
 
-    return planner_util_->getCostmap()->getCost(astar_goal.x, astar_goal.y) < COSTMAP_OCCUPANCE_ACCEPTANCE;
+    return planner_util_->getCostmap()->getCost(astar_goal.x, astar_goal.y) <= COSTMAP_OCCUPANCE_ACCEPTANCE;
+
+  }
+
+  std::vector<geometry_msgs::Point> RRAPlanner::artificial_terrain_cost(geometry_msgs::Point otherVesselPos){
+
+    std::vector<geometry_msgs::Point> artificial_terrain;
+
+    geometry_msgs::Point pos;
+
+    for (unsigned short int i = 1; i <= ARTIFICIAL_TERRAIN_COST_SIZE; i++)
+    {
+      pos.x = otherVesselPos.x;
+      pos.y = otherVesselPos.y + i*0.01;
+      artificial_terrain.push_back(pos);
+    }
+
+    return artificial_terrain;
+
+  }
+
+  void RRAPlanner::usv_state_callback(const nav_msgs::Odometry::ConstPtr& usv_position_msg){
+
+    other_vessel_pos_ = usv_position_msg->pose.pose.position;
+    // ROS_INFO("USV current position: X: %f, Y: %f", usv_current_pos.x, usv_current_pos.y);
+    // ROS_INFO("C_x - N_x: %f - %f --- C_y - N_y: %f - %f", usv_current_pos.x, next_goal.x, usv_current_pos.y, next_goal.y);
 
   }
 
