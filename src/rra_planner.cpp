@@ -62,9 +62,7 @@
 #define COSTMAP_OCCUPANCE_ACCEPTANCE  00254 // 00253 // 00253 // value between 0 and 255
 #define POSE_TO_FOLLOW                00015 // 00035 // 00035
 // #define LOCAL_PATH_MIN_SIZE           00030
-#define ARTIFICIAL_TERRAIN_COST_SIZE  00100
-
-
+#define ARTIFICIAL_TERRAIN_COST_SIZE  00300
 
 namespace rra_local_planner {
 
@@ -72,8 +70,8 @@ namespace rra_local_planner {
   double linear_vel         (double goal_x, double goal_y, double current_x, double current_y, double constt = 1);
   double angular_vel        (double goal_x, double goal_y, double current_x, double current_y, double self_th, double constt = 1);
   double steering_angle     (double goal_x, double goal_y, double current_x, double current_y);
-  // bool valid_astar_goal     (Pos    astar_goal);
-  // std::vector<Pos> artificial_terrain_cost(Pos otherVesselPos);
+  // bool isAStarGoalValid     (Pos    astar_goal);
+  // std::vector<Pos> createArtificialTerrainCost(Pos otherVesselPos);
 
   void RRAPlanner::reconfigure(RRAPlannerConfig &config)
   {
@@ -156,12 +154,9 @@ namespace rra_local_planner {
     goal_front_costs_.setStopOnFailure( false );
     alignment_costs_.setStopOnFailure( false );
 
-    other_vessel_sub_   = private_nh.subscribe("/diffboat2/state", 1, &RRAPlanner::usv_state_callback, this);
+    other_vessel_sub_   = private_nh.subscribe("/diffboat2/state", 1, &RRAPlanner::getOtherVesselOdom_callback, this);
     other_vessel_pos_.x = -1;
     other_vessel_pos_.y = -1;
-
-    // other_vessel_sub_   = private_nh.subscribe("/diffboat2/state", 1, boost::bind( &RRAPlanner::usv_state_callback, this, _1));
-    // other_vessel_sub_   = private_nh.subscribe("/diffboat2/state", 10, usv_state_callback);
 
     //Assuming this planner is being run within the navigation stack, we can
     //just do an upward search for the frequency at which its being run. This
@@ -348,58 +343,60 @@ namespace rra_local_planner {
     //   global_plan_.front().pose.position.x, 
     //   global_plan_.front().pose.position.y);
 
-    ROS_INFO("Costmap size: %d x %d", planner_util_->getCostmap()->getSizeInCellsX(), planner_util_->getCostmap()->getSizeInCellsY());
-    ROS_INFO("Costmap resolution: %f ", planner_util_->getCostmap()->getResolution());
-
-    // Artificial Terrain Cost for COLREGS-COMPLIANCE
-    geometry_msgs::Point diff2_pos;
-    // diff2_pos.x = 6;
-    // diff2_pos.y = 4;
-    diff2_pos = other_vessel_pos_;
-
-    int mx, my, self_x, self_y;
-
-    // if (diff2_pos.x != -1)
-    // {
-
-    //   std::vector<geometry_msgs::Point> artificial_terrain = artificial_terrain_cost(diff2_pos);
-
-    //   // std::cout << "Artificial Terrain: " << std::endl;
-    //   // for (auto pos = artificial_terrain.end()-1; pos != artificial_terrain.begin(); pos--)
-    //   // {
-    //   //   std::cout << "( " << pos->x << ", " << pos->y << " )" << std::endl;
-    //   // }
-
-      
-    //   // global_path_index_to_follow = global_plan_.size() >= POSE_TO_FOLLOW ? POSE_TO_FOLLOW : global_plan_.size() -1;
-    //   planner_util_->getCostmap()->worldToMapEnforceBounds(   global_pose.getOrigin().getX(), 
-    //                                                           global_pose.getOrigin().getY(), 
-    //                                                           self_x, 
-    //                                                           self_y);
-
-    //   for (auto pos = artificial_terrain.begin(); pos != artificial_terrain.end(); pos++)
-    //   {
-
-    //     planner_util_->getCostmap()->worldToMapEnforceBounds( pos->x, 
-    //                                                           pos->y, 
-    //                                                           mx, 
-    //                                                           my);
-
-    //     // ROS_INFO("Before set (%d, %d): %d", mx, my, planner_util_->getCostmap()->getCost(mx, my));
-    //     planner_util_->getCostmap()->setCost(mx, my, (unsigned char)255);
-    //     // ROS_INFO("After set (%d, %d): %d", mx, my, planner_util_->getCostmap()->getCost(mx, my));
-    //   }
-
-    // }
+    // ROS_INFO("Costmap size: %d x %d", planner_util_->getCostmap()->getSizeInCellsX(), planner_util_->getCostmap()->getSizeInCellsY());
+    // ROS_INFO("Costmap resolution: %f ", planner_util_->getCostmap()->getResolution());
 
     // Converts Costmap to graph to be used in the A* method
     GridWithWeights* graph = costmapToGrid( planner_util_->getCostmap() );
 
+    // Auxiliaries for world to map coordinates tranform
+    int mx, my;
+
+    if (isThereAnyOtherVesselNear())
+    {
+      colregs_encounter_type risk = identifyCOLREGSEncounterType();
+
+      // Artificial Terrain Cost for COLREGS-COMPLIANCE
+      geometry_msgs::Point diff2_pos;
+      // diff2_pos.x = 6;
+      // diff2_pos.y = 4;
+      diff2_pos = other_vessel_pos_;
+      other_vessel_pos_.x = -1;
+      other_vessel_pos_.y = -1;
+
+      std::vector<geometry_msgs::Point> artificial_terrain = createArtificialTerrainCost(diff2_pos);
+
+      std::cout << "Artificial Terrain: " << std::endl;
+      for (auto pos = artificial_terrain.end()-1; pos != artificial_terrain.begin(); pos--)
+      {
+        std::cout << "( " << pos->x << ", " << pos->y << " )" << std::endl;
+      }
+
+      for (auto pos = artificial_terrain.begin(); pos != artificial_terrain.end(); pos++)
+      {
+
+        planner_util_->getCostmap()->worldToMapEnforceBounds( pos->x, 
+                                                              pos->y, 
+                                                              mx, 
+                                                              my);
+
+        // ROS_INFO("Before set (%d, %d): %d", mx, my, planner_util_->getCostmap()->getCost(mx, my));
+        // planner_util_->getCostmap()->setCost(mx, my, (unsigned char)255);
+        // ROS_INFO("After set (%d, %d): %d", mx, my, planner_util_->getCostmap()->getCost(mx, my));
+
+        Pos auxPosi;
+        auxPosi.x = mx;
+        auxPosi.y = my;
+        double cost = COSTMAP_OCCUPANCE_ACCEPTANCE +1;
+        auxPosi.cost = cost;
+        graph->forests.insert(auxPosi);
+      }
+
+    }
+
     // Creates data structures to be populated in the A*
     std::unordered_map<Pos, Pos>    came_from;                                // Path
-    std::unordered_map<Pos, double> cost_so_far;                              // A*'s exploration phase util
-
-    
+    std::unordered_map<Pos, double> cost_so_far;                              // A*'s exploration phase util    
 
     // Gets closer global plan position in local frame reference
     Pos astar_goal;
@@ -421,26 +418,26 @@ namespace rra_local_planner {
     current_pos.y = my;
     
     std::vector<geometry_msgs::Point> local_path_at_global_frame;
-    if ( valid_astar_goal(astar_goal) )
+    if ( isAStarGoalValid(astar_goal) )
     {
-      ROS_INFO("A* goal:    (%f, %f)", (double) astar_goal.x, (double) astar_goal.y);
+      // ROS_INFO("A* goal:    (%f, %f)", (double) astar_goal.x, (double) astar_goal.y);
       // ROS_INFO("Robot pos:  (%f, %f)", (double) current_pos.x, (double) current_pos.y);
       AStar::AStar astar;                                                                 // A* handler
       astar.AStarSearch(*(graph), current_pos, astar_goal, came_from, cost_so_far);       // A* method execution
-      std::cout << "Reconstructing path" << std::endl;
+      // std::cout << "Reconstructing path" << std::endl;
       std::vector<Pos> local_path = astar.reconstruct_path(current_pos, astar_goal, came_from); // Util for easier path use
-      std::cout << "Finished path reconstruction" << std::endl;
+      // std::cout << "Finished path reconstruction" << std::endl;
       // std::vector<geometry_msgs::Point> local_path_at_global_frame;
 
-      ROS_INFO("Local path:");
-      for (auto pos = local_path.begin(); pos != local_path.end(); pos++)
-      {
-        std::cout << "( " << pos->x << ", " << pos->y << ")->";
-      }
-      std::cout << std::endl;
+      // ROS_INFO("Local path:");
+      // for (auto pos = local_path.begin(); pos != local_path.end(); pos++)
+      // {
+      //   std::cout << "( " << pos->x << ", " << pos->y << ")->";
+      // }
+      // std::cout << std::endl;
 
 
-      std::cout << "Converting local plan from local coordinations to global cordenates" << std::endl;
+      // std::cout << "Converting local plan from local coordinations to global cordenates" << std::endl;
       for (auto pos = local_path.begin(); pos != local_path.end(); pos++)
       {
 
@@ -453,14 +450,14 @@ namespace rra_local_planner {
         local_path_at_global_frame.push_back(global_pos);
 
       }
-      std::cout << "Finished conversion" << std::endl;
+      // std::cout << "Finished conversion" << std::endl;
 
-      ROS_INFO("Local path at global frame:");
-      for (auto pos = local_path_at_global_frame.begin(); pos != local_path_at_global_frame.end(); pos++)
-      {
-        std::cout << "( " << pos->x << ", " << pos->y << ")->";
-      }
-      std::cout << std::endl;
+      // ROS_INFO("Local path at global frame:");
+      // for (auto pos = local_path_at_global_frame.begin(); pos != local_path_at_global_frame.end(); pos++)
+      // {
+      //   std::cout << "( " << pos->x << ", " << pos->y << ")->";
+      // }
+      // std::cout << std::endl;
 
       std::cout << "Drawing cenario" << std::endl;
       draw_grid(*graph, 2, nullptr, nullptr, &local_path);
@@ -613,13 +610,13 @@ namespace rra_local_planner {
 
   };
 
-  bool RRAPlanner::valid_astar_goal(Pos astar_goal){
+  bool RRAPlanner::isAStarGoalValid(Pos astar_goal){
 
     return planner_util_->getCostmap()->getCost(astar_goal.x, astar_goal.y) <= COSTMAP_OCCUPANCE_ACCEPTANCE;
 
   }
 
-  std::vector<geometry_msgs::Point> RRAPlanner::artificial_terrain_cost(geometry_msgs::Point otherVesselPos){
+  std::vector<geometry_msgs::Point> RRAPlanner::createArtificialTerrainCost(geometry_msgs::Point otherVesselPos){
 
     std::vector<geometry_msgs::Point> artificial_terrain;
 
@@ -636,12 +633,29 @@ namespace rra_local_planner {
 
   }
 
-  void RRAPlanner::usv_state_callback(const nav_msgs::Odometry::ConstPtr& usv_position_msg){
+  void RRAPlanner::getOtherVesselOdom_callback(const nav_msgs::Odometry::ConstPtr& usv_position_msg){
 
     other_vessel_pos_ = usv_position_msg->pose.pose.position;
     // ROS_INFO("USV current position: X: %f, Y: %f", usv_current_pos.x, usv_current_pos.y);
     // ROS_INFO("C_x - N_x: %f - %f --- C_y - N_y: %f - %f", usv_current_pos.x, next_goal.x, usv_current_pos.y, next_goal.y);
 
+  }
+
+  // probably could be improved calling only "wordToMap"
+  bool RRAPlanner::isThereAnyOtherVesselNear(){
+    
+    if ( (other_vessel_pos_.x != -1) && (other_vessel_pos_.y != -1)) // Is there any publishing
+    {
+      unsigned int dummy_unsigned_int_x, dummy_unsigned_int_y;
+      // identify if other vessel is near (inside local costmap region)
+      return planner_util_->getCostmap()->worldToMap(other_vessel_pos_.x, other_vessel_pos_.y, dummy_unsigned_int_x, dummy_unsigned_int_y);
+    }
+  
+  }
+
+  colregs_encounter_type RRAPlanner::identifyCOLREGSEncounterType(){
+
+    return HeadOn;
   }
 
 };

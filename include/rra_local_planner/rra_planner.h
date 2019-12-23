@@ -66,6 +66,14 @@
 #include "../../include/AStar/Astar.h"
 // #include "../AStar/Astar.h"
 
+enum colregs_encounter_type
+{
+  HeadOn,
+  Left,
+  Right,
+  Overtaking
+};
+
 namespace rra_local_planner {
   /**
    * @class RRAPlanner
@@ -163,9 +171,11 @@ namespace rra_local_planner {
        */
       GridWithWeights* costmapToGrid(costmap_2d::Costmap2D *costmap);
 
-      bool valid_astar_goal(Pos astar_goal);
-      std::vector<geometry_msgs::Point> artificial_terrain_cost(geometry_msgs::Point otherVesselPos);
-      void usv_state_callback(const nav_msgs::Odometry::ConstPtr& usv_position_msg);
+      bool isAStarGoalValid(Pos astar_goal);
+      std::vector<geometry_msgs::Point> createArtificialTerrainCost(geometry_msgs::Point otherVesselPos);
+      void getOtherVesselOdom_callback(const nav_msgs::Odometry::ConstPtr& usv_position_msg);
+      bool isThereAnyOtherVesselNear();
+      colregs_encounter_type identifyCOLREGSEncounterType();
 
     private:
 
@@ -206,6 +216,7 @@ namespace rra_local_planner {
 
       ros::Subscriber other_vessel_sub_;
       geometry_msgs::Point other_vessel_pos_;
+
   };
 };
 #endif
