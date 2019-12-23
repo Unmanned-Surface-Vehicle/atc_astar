@@ -33,10 +33,12 @@ namespace AStar
 
       for (Pos next : graph.Neighbors(current)) {                             // Frontier expansion
         double new_cost = cost_so_far[current] + graph.cost(current, next);   // Add information about the cost of new frontier's position cost
+
         if (cost_so_far.find(next) == cost_so_far.end()                       // Posiition not considered yet
             || new_cost < cost_so_far[next]) {                                // During a expansion comming from another path, the cost can be lower, so we updated our data structures wih this information
           cost_so_far[next] = new_cost;
           double priority   = new_cost + heuristic(next, goal);
+
           frontier.put(next, priority);
           came_from[next]   = current;        
         }

@@ -6,9 +6,10 @@
 struct GridWithWeights: SquareGrid {
   std::unordered_set<Pos> forests;
   GridWithWeights(int w, int h): SquareGrid(w, h) {}
-  double cost(Pos from_node, Pos to_node) const {
-    // return 1; //forests.find(to_node) != forests.end()? 5 : 1;
-    return forests.find(to_node) != forests.end()? 2 : 1;
+  double cost(Pos from_node, Pos to_node) {
+    // return 1;
+    std::unordered_set<Pos>::const_iterator pos = forests.find(to_node);
+    return pos != forests.end() ? pos->cost : 1;
     // return forests.find(to_node) != forests.end()? to_node.cost : 1;
   }
 };
