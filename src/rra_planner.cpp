@@ -56,12 +56,14 @@
 #define Kp 0.1
 #define Ki 0
 
-#define LINEAR_VEL_CONST              0.050 // 0.1   // 0.075 // Propor
+#define LINEAR_VEL_CONST              0.075 // 0.1   // 0.075 // Propor
 #define ANGULAR_VEL_CONST             00.75 // 0.45  // 00.35
 #define COSTMAP_FREE_ACCEPTANCE       00001 // 00001 // 00001 // value between 0 and 255
 #define COSTMAP_OCCUPANCE_ACCEPTANCE  00253 // 00253 // 00253 // value between 0 and 255
-#define POSE_TO_FOLLOW                00010 // 00035 // 00035
-#define ARTIFICIAL_TERRAIN_COST_SIZE  100
+#define POSE_TO_FOLLOW                00015 // 00035 // 00035
+// #define LOCAL_PATH_MIN_SIZE           00030
+#define ARTIFICIAL_TERRAIN_COST_SIZE  00100
+
 
 
 namespace rra_local_planner {
@@ -411,16 +413,21 @@ namespace rra_local_planner {
     // Gets robot current position in local frame reference
     Pos current_pos;
     
-    unsigned short int global_path_index_to_follow = 0;
-    global_path_index_to_follow = global_plan_.size() >= POSE_TO_FOLLOW ? POSE_TO_FOLLOW : global_plan_.size() -1;
-    // planner_util_->getCostmap()->worldToMapEnforceBounds(   global_pose.getOrigin().getX(), 
-    //                                                         global_pose.getOrigin().getY(), 
-    //                                                         mx, 
-    //                                                         my);
-    planner_util_->getCostmap()->worldToMapEnforceBounds(   global_plan_[global_path_index_to_follow].pose.position.x, 
-                                                            global_plan_[global_path_index_to_follow].pose.position.y, 
+    // unsigned short int global_path_index_to_follow = 0;
+    // global_path_index_to_follow = global_plan_.size() >= POSE_TO_FOLLOW ? POSE_TO_FOLLOW : global_plan_.size() -1;
+    // if (glo)
+    // {
+    //   /* code */
+    // }
+    
+    planner_util_->getCostmap()->worldToMapEnforceBounds(   global_pose.getOrigin().getX(), 
+                                                            global_pose.getOrigin().getY(), 
                                                             mx, 
                                                             my);
+    // planner_util_->getCostmap()->worldToMapEnforceBounds(   global_plan_[global_path_index_to_follow].pose.position.x, 
+    //                                                         global_plan_[global_path_index_to_follow].pose.position.y, 
+    //                                                         mx, 
+    //                                                         my);
     current_pos.x = mx;
     current_pos.y = my;
     
@@ -506,7 +513,13 @@ namespace rra_local_planner {
 
     // Creates cmd_vel populating drive_velocities with translation and rotation matrixes
     unsigned short int local_path_index_to_follow = 0;
-    local_path_index_to_follow = local_path_at_global_frame.size() >= POSE_TO_FOLLOW ? POSE_TO_FOLLOW : local_path_at_global_frame.size() -1;
+    local_path_index_to_follow = local_path_at_global_frame.size() >= POSE_TO_FOLLOW ? POSE_TO_FOLLOW -1 : local_path_at_global_frame.size() -1;
+
+    ROS_INFO("POSE %d IN PATH: (%f, %f))", local_path_index_to_follow, local_path_at_global_frame[local_path_index_to_follow].x, local_path_at_global_frame[local_path_index_to_follow].y);
+
+    // local_path_index_to_follow = local_path_at_global_frame.size() < LOCAL_PATH_MIN_SIZE ? (local_path_at_global_frame.size() -1) : (local_path_at_global_frame.size() -1)/2;    
+    
+
     if (result_traj_.cost_ < 0)
     {
 
