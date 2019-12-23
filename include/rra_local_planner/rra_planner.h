@@ -204,7 +204,6 @@ namespace rra_local_planner {
 
       base_local_planner::SimpleScoredSamplingPlanner scored_sampling_planner_;
 
-      ros::Publisher ais_pub_;
       ros::Subscriber other_vessel_sub_;
       geometry_msgs::Point other_vessel_pos_;
   };
