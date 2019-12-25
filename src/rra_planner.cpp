@@ -56,14 +56,14 @@
 #define Kp 0.1
 #define Ki 0
 
-#define LINEAR_VEL_CONST                0.075 // 0.1   // 0.075 // Propor
-#define ANGULAR_VEL_CONST               00.75 // 0.45  // 00.35
-#define COSTMAP_FREE_ACCEPTANCE         00001 // 00001 // 00001 // value between 0 and 255
-#define COSTMAP_OCCUPANCE_ACCEPTANCE    00254 // 00253 // 00253 // value between 0 and 255
-#define POSE_TO_FOLLOW                  00015 // 00035 // 00035
+#define LINEAR_VEL_CONST                0.075 // Proportional controller gain
+#define ANGULAR_VEL_CONST               0.75  // Proportional controller gain
+#define COSTMAP_FREE_ACCEPTANCE         1     // value from 0 to 255
+#define COSTMAP_OCCUPANCE_ACCEPTANCE    250   // value from 0 to 255
+#define POSE_TO_FOLLOW                  15    // 
 // #define LOCAL_PATH_MIN_SIZE           00030
-#define ARTIFICIAL_TERRAIN_COST_LENGTH  00010 // Local costmap units
-#define ARTIFICIAL_TERRAIN_COST_WIDTH   00010 // Local costmap units
+#define ARTIFICIAL_TERRAIN_COST_LENGTH  60    // Local costmap units
+#define ARTIFICIAL_TERRAIN_COST_WIDTH   36    // Local costmap units
 
 namespace rra_local_planner {
 
@@ -71,8 +71,6 @@ namespace rra_local_planner {
   double linear_vel         (double goal_x, double goal_y, double current_x, double current_y, double constt = 1);
   double angular_vel        (double goal_x, double goal_y, double current_x, double current_y, double self_th, double constt = 1);
   double steering_angle     (double goal_x, double goal_y, double current_x, double current_y);
-  // bool isAStarGoalValid     (Pos    astar_goal);
-  // std::vector<Pos> createArtificialTerrainCost(Pos otherVesselPos);
 
   void RRAPlanner::reconfigure(RRAPlannerConfig &config)
   {
@@ -389,10 +387,10 @@ namespace rra_local_planner {
         Pos auxPosi;
         auxPosi.x = mx;
         auxPosi.y = my;
-        double cost = COSTMAP_OCCUPANCE_ACCEPTANCE +1;
+        double cost = COSTMAP_OCCUPANCE_ACCEPTANCE;
         auxPosi.cost = cost;
-        graph->walls.insert(auxPosi);
-        // graph->forests.insert(auxPosi);
+        // graph->walls.insert(auxPosi);
+        graph->forests.insert(auxPosi);
 
       }
 
@@ -604,12 +602,12 @@ namespace rra_local_planner {
           auxPosi.x = i;
           auxPosi.y = j;
           grid_p->walls.insert(auxPosi);
-          // ROS_INFO("WALL (%d, %d) - cost: %f", i, j, (double) costmap->getCost(i, j));
-        }else if ( (double) costmap->getCost(i, j) > COSTMAP_FREE_ACCEPTANCE)
+          ROS_INFO("WALL (%d, %d) - cost: %f", i, j, double(costmap->getCost(i, j)));
+        }else if ( double(costmap->getCost(i, j)) > COSTMAP_FREE_ACCEPTANCE)
         {
           auxPosi.x = i;
           auxPosi.y = j;
-          double cost = costmap->getCost(i, j);
+          double cost = double(costmap->getCost(i, j));
           auxPosi.cost = cost;
           grid_p->forests.insert(auxPosi);
           // ROS_INFO("FOREST (%d, %d) - cost: %f, cost: %f", i, j, auxPosi.cost, cost);
@@ -633,14 +631,20 @@ namespace rra_local_planner {
 
     geometry_msgs::Point pos  ;
 
-      for (short int j = - ARTIFICIAL_TERRAIN_COST_WIDTH/2; j < ARTIFICIAL_TERRAIN_COST_WIDTH/2; j++)
-     {
+    short int width, length, x_offset;
 
-      for (unsigned short int i = 1; i <= ARTIFICIAL_TERRAIN_COST_LENGTH; i++)
+    // Hardcoded ajustments
+    width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
+    length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
+    x_offset  = 1; 
+
+    for (short int j = - width/2; j < width/2; j++)
+    {
+
+      for (unsigned short int i = 1; i <= length; i++)
       { 
         double res = planner_util_->getCostmap()->getResolution();
-        pos.x = otherVesselPos.x + j*res;
-        // pos.x = otherVesselPos.x;
+        pos.x = otherVesselPos.x + j*res - x_offset*res;
         pos.y = otherVesselPos.y + i*res;
         artificial_terrain.push_back(pos);
       }
