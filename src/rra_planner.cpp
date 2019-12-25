@@ -56,13 +56,14 @@
 #define Kp 0.1
 #define Ki 0
 
-#define LINEAR_VEL_CONST              0.075 // 0.1   // 0.075 // Propor
-#define ANGULAR_VEL_CONST             00.75 // 0.45  // 00.35
-#define COSTMAP_FREE_ACCEPTANCE       00001 // 00001 // 00001 // value between 0 and 255
-#define COSTMAP_OCCUPANCE_ACCEPTANCE  00254 // 00253 // 00253 // value between 0 and 255
-#define POSE_TO_FOLLOW                00015 // 00035 // 00035
+#define LINEAR_VEL_CONST                0.075 // 0.1   // 0.075 // Propor
+#define ANGULAR_VEL_CONST               00.75 // 0.45  // 00.35
+#define COSTMAP_FREE_ACCEPTANCE         00001 // 00001 // 00001 // value between 0 and 255
+#define COSTMAP_OCCUPANCE_ACCEPTANCE    00254 // 00253 // 00253 // value between 0 and 255
+#define POSE_TO_FOLLOW                  00015 // 00035 // 00035
 // #define LOCAL_PATH_MIN_SIZE           00030
-#define ARTIFICIAL_TERRAIN_COST_SIZE  00300
+#define ARTIFICIAL_TERRAIN_COST_LENGTH  00010 // Local costmap units
+#define ARTIFICIAL_TERRAIN_COST_WIDTH   00010 // Local costmap units
 
 namespace rra_local_planner {
 
@@ -352,6 +353,7 @@ namespace rra_local_planner {
     // Auxiliaries for world to map coordinates tranform
     int mx, my;
 
+    // Artificial Terrain Cost for COLREGS-COMPLIANCE if is there any other vessel near
     if (isThereAnyOtherVesselNear())
     {
       colregs_encounter_type risk = identifyCOLREGSEncounterType();
@@ -366,11 +368,11 @@ namespace rra_local_planner {
 
       std::vector<geometry_msgs::Point> artificial_terrain = createArtificialTerrainCost(diff2_pos);
 
-      std::cout << "Artificial Terrain: " << std::endl;
-      for (auto pos = artificial_terrain.end()-1; pos != artificial_terrain.begin(); pos--)
-      {
-        std::cout << "( " << pos->x << ", " << pos->y << " )" << std::endl;
-      }
+      // std::cout << "Artificial Terrain: " << std::endl;
+      // for (auto pos = artificial_terrain.end()-1; pos != artificial_terrain.begin(); pos--)
+      // {
+      //   std::cout << "( " << pos->x << ", " << pos->y << " )" << std::endl;
+      // }
 
       for (auto pos = artificial_terrain.begin(); pos != artificial_terrain.end(); pos++)
       {
@@ -389,7 +391,9 @@ namespace rra_local_planner {
         auxPosi.y = my;
         double cost = COSTMAP_OCCUPANCE_ACCEPTANCE +1;
         auxPosi.cost = cost;
-        graph->forests.insert(auxPosi);
+        graph->walls.insert(auxPosi);
+        // graph->forests.insert(auxPosi);
+
       }
 
     }
@@ -399,15 +403,14 @@ namespace rra_local_planner {
     std::unordered_map<Pos, double> cost_so_far;                              // A*'s exploration phase util    
 
     // Gets closer global plan position in local frame reference
-    Pos astar_goal;
+    Pos static astar_goal{-1, -1}, aux;
     planner_util_->getCostmap()->worldToMapEnforceBounds(   goal_pose.pose.position.x, 
                                                             goal_pose.pose.position.y, 
                                                             mx, 
                                                             my);
-    astar_goal.x = mx;
-    astar_goal.y = my;
+    aux.x = mx;
+    aux.y = my;
 
-    // Gets robot current position in local frame reference
     Pos current_pos;
     
     planner_util_->getCostmap()->worldToMapEnforceBounds(   global_pose.getOrigin().getX(), 
@@ -418,8 +421,11 @@ namespace rra_local_planner {
     current_pos.y = my;
     
     std::vector<geometry_msgs::Point> local_path_at_global_frame;
-    if ( isAStarGoalValid(astar_goal) )
-    {
+
+    if ( isAStarGoalValid(aux) ){ // new valid A* goal
+      astar_goal = aux;
+      // Gets robot current position in local frame reference
+
       // ROS_INFO("A* goal:    (%f, %f)", (double) astar_goal.x, (double) astar_goal.y);
       // ROS_INFO("Robot pos:  (%f, %f)", (double) current_pos.x, (double) current_pos.y);
       AStar::AStar astar;                                                                 // A* handler
@@ -476,25 +482,30 @@ namespace rra_local_planner {
       // debrief stateful scoring functions
       oscillation_costs_.updateOscillationFlags(pos, &result_traj_, planner_util_->getCurrentLimits().min_trans_vel);
 
-    }else{
+      
+
+      // if we don't have a legal trajectory, we'll just command zero
+      // if (result_traj_.cost_ < 0) {
+      //   drive_velocities.setIdentity();
+      // } else {
+      //   tf::Vector3 start(result_traj_.xv_, result_traj_.yv_, 0);
+      //   drive_velocities.setOrigin(start);
+      //   tf::Matrix3x3 matrix;
+      //   matrix.setRotation(tf::createQuaternionFromYaw(result_traj_.thetav_));
+      //   drive_velocities.setBasis(matrix);
+      // }
+
+    } else{
 
       result_traj_.cost_ = -7;
-
+      
     }
-
-    // result_traj_.cost_ = 12;                                                            // Legacy behaviour maintence
-
-    
-
-    // if we don't have a legal trajectory, we'll just command zero
-    // if (result_traj_.cost_ < 0) {
+    // else if ( (astar_goal.x == -1) && (astar_goal.y == -1) ) // New A* goal is not valid. Is last A* goal invalid?
+    // {
+    //   result_traj_.cost_ = -7;
+    //   result_traj_.resetPoints();
     //   drive_velocities.setIdentity();
-    // } else {
-    //   tf::Vector3 start(result_traj_.xv_, result_traj_.yv_, 0);
-    //   drive_velocities.setOrigin(start);
-    //   tf::Matrix3x3 matrix;
-    //   matrix.setRotation(tf::createQuaternionFromYaw(result_traj_.thetav_));
-    //   drive_velocities.setBasis(matrix);
+    //   return result_traj_;
     // }
 
     // Creates cmd_vel populating drive_velocities with translation and rotation matrixes
@@ -588,13 +599,13 @@ namespace rra_local_planner {
     {
       for (size_t i = 0; i < costmap->getSizeInCellsX(); i++)
       {
-        if ( costmap->getCost(i, j) > COSTMAP_OCCUPANCE_ACCEPTANCE)
+        if ( double(costmap->getCost(i, j)) > COSTMAP_OCCUPANCE_ACCEPTANCE)
         {
           auxPosi.x = i;
           auxPosi.y = j;
           grid_p->walls.insert(auxPosi);
           // ROS_INFO("WALL (%d, %d) - cost: %f", i, j, (double) costmap->getCost(i, j));
-        }else if ( costmap->getCost(i, j) > COSTMAP_FREE_ACCEPTANCE)
+        }else if ( (double) costmap->getCost(i, j) > COSTMAP_FREE_ACCEPTANCE)
         {
           auxPosi.x = i;
           auxPosi.y = j;
@@ -616,18 +627,27 @@ namespace rra_local_planner {
 
   }
 
-  std::vector<geometry_msgs::Point> RRAPlanner::createArtificialTerrainCost(geometry_msgs::Point otherVesselPos){
+  std::vector<geometry_msgs::Point> RRAPlanner::createArtificialTerrainCost(geometry_msgs::Point otherVesselPos)  {
 
-    std::vector<geometry_msgs::Point> artificial_terrain;
+    std::vector<geometry_msgs::Point> artificial_terrain  ;
 
-    geometry_msgs::Point pos;
+    geometry_msgs::Point pos  ;
 
-    for (unsigned short int i = 1; i <= ARTIFICIAL_TERRAIN_COST_SIZE; i++)
-    {
-      pos.x = otherVesselPos.x;
-      pos.y = otherVesselPos.y + i*0.01;
-      artificial_terrain.push_back(pos);
+      for (short int j = - ARTIFICIAL_TERRAIN_COST_WIDTH/2; j < ARTIFICIAL_TERRAIN_COST_WIDTH/2; j++)
+     {
+
+      for (unsigned short int i = 1; i <= ARTIFICIAL_TERRAIN_COST_LENGTH; i++)
+      { 
+        double res = planner_util_->getCostmap()->getResolution();
+        pos.x = otherVesselPos.x + j*res;
+        // pos.x = otherVesselPos.x;
+        pos.y = otherVesselPos.y + i*res;
+        artificial_terrain.push_back(pos);
+      }
+
     }
+    
+    
 
     return artificial_terrain;
 
