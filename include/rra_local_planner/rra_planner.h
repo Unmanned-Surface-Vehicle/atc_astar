@@ -217,6 +217,10 @@ namespace rra_local_planner {
       ros::Subscriber other_vessel_sub_;
       geometry_msgs::Point other_vessel_pos_;
 
+      static Pos last_astar_goal_;
+      static tf::Stamped<tf::Pose> last_drive_velocities_;
+      
+
   };
 };
 #endif
