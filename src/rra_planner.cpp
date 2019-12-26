@@ -493,7 +493,16 @@ namespace rra_local_planner {
     unsigned short int local_path_index_to_follow = 0;
     local_path_index_to_follow = local_path_at_global_frame.size() >= POSE_TO_FOLLOW ? POSE_TO_FOLLOW -1 : local_path_at_global_frame.size() -1;
 
-    tf::Vector3 start(
+    double ang = steering_angle(  local_path_at_global_frame[local_path_index_to_follow].x, 
+                                  local_path_at_global_frame[local_path_index_to_follow].y, 
+                                  global_pose.getOrigin().getX(), 
+                                  global_pose.getOrigin().getY() 
+                                ) - tf::getYaw(global_pose.getRotation());
+
+    tf::Vector3 start(0, 0, 0);  
+    if (abs(ang) <= PI/4 )
+    {
+          start = tf::Vector3(
                       linear_vel(
                                   local_path_at_global_frame[local_path_index_to_follow].x, 
                                   local_path_at_global_frame[local_path_index_to_follow].y, 
@@ -503,7 +512,10 @@ namespace rra_local_planner {
                                 ), 
                       0, 
                       0);
-    drive_velocities.setOrigin(start);
+      
+    }
+    
+    drive_velocities.setOrigin(start);    
 
     tf::Matrix3x3 matrix;
     matrix.setRotation(
