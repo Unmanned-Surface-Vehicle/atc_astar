@@ -57,7 +57,7 @@
 #define Ki 0
 
 #define LINEAR_VEL_CONST                0.075 // Proportional controller gain
-#define ANGULAR_VEL_CONST               0.75  // Proportional controller gain
+#define ANGULAR_VEL_CONST               1.00  // Proportional controller gain
 #define COSTMAP_FREE_ACCEPTANCE         1     // value from 0 to 255
 #define COSTMAP_OCCUPANCE_ACCEPTANCE    250   // value from 0 to 255
 #define POSE_TO_FOLLOW                  15    // 
