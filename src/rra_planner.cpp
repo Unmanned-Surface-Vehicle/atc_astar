@@ -52,6 +52,22 @@
 
 // #include <math.h>       /* atan */
 
+<<<<<<< HEAD
+=======
+#define PI 3.14159265
+#define Kp 0.1
+#define Ki 0
+
+#define LINEAR_VEL_CONST                0.075 // Proportional controller gain
+#define ANGULAR_VEL_CONST               1.00  // Proportional controller gain
+#define COSTMAP_FREE_ACCEPTANCE         1     // value from 0 to 255
+#define COSTMAP_OCCUPANCE_ACCEPTANCE    250   // value from 0 to 255
+#define POSE_TO_FOLLOW                  15    // 
+// #define LOCAL_PATH_MIN_SIZE           00030
+#define ARTIFICIAL_TERRAIN_COST_LENGTH  60    // Local costmap units
+#define ARTIFICIAL_TERRAIN_COST_WIDTH   36    // Local costmap units
+
+>>>>>>> origin/master
 namespace rra_local_planner {
 
   double euclidian_distance (double goal_x, double goal_y, double current_x, double current_y);
