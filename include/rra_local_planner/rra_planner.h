@@ -76,8 +76,9 @@
 #define COSTMAP_OCCUPANCE_ACCEPTANCE    250   // value from 0 to 255
 #define POSE_TO_FOLLOW                  15    // 
 // #define LOCAL_PATH_MIN_SIZE           00030
-#define ARTIFICIAL_TERRAIN_COST_LENGTH  60    // Local costmap units
-#define ARTIFICIAL_TERRAIN_COST_WIDTH   36    // Local costmap units
+#define ARTIFICIAL_TERRAIN_COST_LENGTH  80    // Local costmap units
+#define ARTIFICIAL_TERRAIN_COST_WIDTH   6     // Local costmap units
+#define CRITICAL_DISTANCE               2
 
 enum colregs_encounter_type
 {
