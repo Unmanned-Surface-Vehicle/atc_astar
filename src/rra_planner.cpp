@@ -52,19 +52,6 @@
 
 // #include <math.h>       /* atan */
 
-#define PI 3.14159265
-#define Kp 0.1
-#define Ki 0
-
-#define LINEAR_VEL_CONST                0.075 // Proportional controller gain
-#define ANGULAR_VEL_CONST               0.75  // Proportional controller gain
-#define COSTMAP_FREE_ACCEPTANCE         1     // value from 0 to 255
-#define COSTMAP_OCCUPANCE_ACCEPTANCE    250   // value from 0 to 255
-#define POSE_TO_FOLLOW                  15    // 
-// #define LOCAL_PATH_MIN_SIZE           00030
-#define ARTIFICIAL_TERRAIN_COST_LENGTH  60    // Local costmap units
-#define ARTIFICIAL_TERRAIN_COST_WIDTH   36    // Local costmap units
-
 namespace rra_local_planner {
 
   double euclidian_distance (double goal_x, double goal_y, double current_x, double current_y);
@@ -153,12 +140,12 @@ namespace rra_local_planner {
     goal_front_costs_.setStopOnFailure( false );
     alignment_costs_.setStopOnFailure( false );
 
-    other_vessel_sub_   = private_nh.subscribe("/diffboat2/state", 1, &RRAPlanner::getOtherVesselOdom_callback, this);
-    other_vessel_pos_.x = -1;
-    other_vessel_pos_.y = -1;
+    other_vessel_sub_     = private_nh.subscribe("/diffboat2/state", 1, &RRAPlanner::getOtherVesselOdom_callback, this);
+    other_vessel_pos_.x   = -1;
+    other_vessel_pos_.y   = -1;
 
-    last_astar_goal_.x = -1;
-    last_astar_goal_.y = -1
+    last_astar_goal_.x    = -1;
+    last_astar_goal_.y    = -1;
 
     //Assuming this planner is being run within the navigation stack, we can
     //just do an upward search for the frequency at which its being run. This
@@ -344,14 +331,12 @@ namespace rra_local_planner {
     //make sure that our configuration doesn't change mid-run
     boost::mutex::scoped_lock l(configuration_mutex_);
 
-    geometry_msgs::PoseStamped              goal_pose_local_global_frame  = global_plan_.back();                // Local goal
+    geometry_msgs::Point                    astar_local_goal_global_frame = global_plan_.back().pose.position;  // Local goal
     base_local_planner::LocalPlannerLimits  limits                        = planner_util_->getCurrentLimits();  // TODO: Evaluate need. (probably can be removed)
     costmap_2d::Costmap2D                   *local_costmap_2d             = planner_util_->getCostmap();        // Auxiliary for local costmap access
     int                                     mx, my;                                                             // General auxiliaries variables for world to map coordinates tranform
-    Pos                                     current_astar_goal{-1, -1};                                         // Current A* goal
-    // Pos static                              last_astar_goal{-1, -1};                                            // Last A* goal
+    Pos                                     current_astar_goal;                                                 // Current A* goal
     Pos                                     current_pos;
-    // tf::Stamped<tf::Pose>                   static last_drive_velocities;
     GridWithWeights*                        graph;                                                              // A* main strucutre for goal search
     std::unordered_map<Pos, Pos>            came_from;                                                          // A* Path
     std::unordered_map<Pos, double>         cost_so_far;                                                        // A*'s exploration phase util    
@@ -361,28 +346,34 @@ namespace rra_local_planner {
     // ROS_INFO("global_plan size: %d", (int) global_plan_.size());
     // ROS_INFO("first: (%f, %f) last: (%f, %f))", 
     //   global_plan_.back().pose.position.x, 
-    //   global_plan_.back().pose.position.y, 
+    //   global_plan_.back().pose.position.y,  
     //   global_plan_.front().pose.position.x, 
     //   global_plan_.front().pose.position.y);
 
     // Gets closer global plan position in local frame reference
-    local_costmap_2d->worldToMapEnforceBounds(  goal_pose_local_global_frame.pose.position.x, 
-                                                goal_pose_local_global_frame.pose.position.y, 
+    local_costmap_2d->worldToMapEnforceBounds(  astar_local_goal_global_frame.x, 
+                                                astar_local_goal_global_frame.y, 
                                                 current_astar_goal.x, 
                                                 current_astar_goal.y);
-    // current_astar_goal.x = mx;
-    // current_astar_goal.y = my;
 
-    if ( !isAStarGoalValid(current_astar_goal) )  // * if A* goal IS NOT valid
+    ROS_INFO("A* goal:    (%d, %d)", current_astar_goal.x, current_astar_goal.y);
+
+    if ( !isAStarGoalValid( current_astar_goal ) )  // * if A* goal IS NOT valid (out of local costmap OR in occupied cell)
     {
-      if ( isAStarGoalValid(last_astar_goal_) )    // * if A* goal IS NOT valid AND last go is valid then use last cmd_vel
+
+      ROS_INFO("A* goal INVALID");
+      ROS_INFO("Last A* goal: (%d, %d)", last_astar_goal_.x, last_astar_goal_.y);
+
+      if ( last_astar_goal_.x != -1 && last_astar_goal_.y != -1 ) // * if A* goal IS NOT valid AND last go is valid then use last cmd_vel
       {
+        ROS_INFO("Last A* goal valid");
 
         drive_velocities = last_drive_velocities_;
         result_traj_.cost_ = 12;
 
       }else                                       // * if A* goal IS NOT valid AND last go IS NOT valid then do not generate any velocity
       {
+        ROS_INFO("Last A* goal INVALID");
 
         drive_velocities.setIdentity();
         result_traj_.cost_ = -7;
@@ -391,14 +382,14 @@ namespace rra_local_planner {
       
       return result_traj_;
 
-    }
+    } // else valid goal
     
     // * plan and generate new cmd_vel
 
     // Converts Costmap to graph to be used in the A* method
     graph = costmapToGrid( local_costmap_2d );
     // std::cout << "Finished conversion" << std::endl;
-    // ROS_INFO("Costmap size: %d x %d", planner_util_->getCostmap()->getSizeInCellsX(), planner_util_->getCostmap()->getSizeInCellsY());
+    ROS_INFO("Costmap size: %d x %d", planner_util_->getCostmap()->getSizeInCellsX(), planner_util_->getCostmap()->getSizeInCellsY());
     // ROS_INFO("Costmap resolution: %f ", planner_util_->getCostmap()->getResolution());
     
     // **** creates artificial terrain cost
@@ -439,6 +430,8 @@ namespace rra_local_planner {
 
     }
 
+    // ROS_INFO("A* goal: (%d, %d)", current_astar_goal.x, current_astar_goal.y);
+
     // **** A* search
     // Gets robot current position in local frame reference
     local_costmap_2d->worldToMapEnforceBounds(  global_pose.getOrigin().getX(), 
@@ -447,7 +440,6 @@ namespace rra_local_planner {
                                                 current_pos.y);    
     // current_pos.x = mx;
     // current_pos.y = my;
-    // ROS_INFO("A* goal:    (%f, %f)", (double) current_astar_goal.x, (double) current_astar_goal.y);
     // ROS_INFO("Robot pos:  (%f, %f)", (double) current_pos.x, (double) current_pos.y);
 
     astar.AStarSearch(*(graph), current_pos, current_astar_goal, came_from, cost_so_far);                             // A* method execution
@@ -522,9 +514,10 @@ namespace rra_local_planner {
                                                     ANGULAR_VEL_CONST)
                                                     )
                       );
-    drive_velocities.setBasis(matrix);    
+    drive_velocities.setBasis(matrix);
 
-    last_astar_goal_       = current_astar_goal;
+    last_astar_goal_.x = astar_local_goal_global_frame.x;
+    last_astar_goal_.y = astar_local_goal_global_frame.y;
     last_drive_velocities_ = drive_velocities;
 
     return result_traj_;
@@ -581,7 +574,7 @@ namespace rra_local_planner {
           auxPosi.x = i;
           auxPosi.y = j;
           grid_p->walls.insert(auxPosi);
-          ROS_INFO("WALL (%d, %d) - cost: %f", i, j, double(costmap->getCost(i, j)));
+          // ROS_INFO("WALL (%d, %d) - cost: %f", i, j, double(costmap->getCost(i, j)));
         }else if ( double(costmap->getCost(i, j)) > COSTMAP_FREE_ACCEPTANCE)
         {
           auxPosi.x = i;
@@ -600,9 +593,8 @@ namespace rra_local_planner {
 
   bool RRAPlanner::isAStarGoalValid(Pos astar_goal){
 
-    return planner_util_->getCostmap()->worldToMap();
     return planner_util_->getCostmap()->getCost(astar_goal.x, astar_goal.y) <= COSTMAP_OCCUPANCE_ACCEPTANCE;
-
+    
   }
 
   std::vector<geometry_msgs::Point> RRAPlanner::createArtificialTerrainCost(geometry_msgs::Point otherVesselPos)  {

@@ -66,6 +66,19 @@
 #include "../../include/AStar/Astar.h"
 // #include "../AStar/Astar.h"
 
+#define PI 3.14159265
+#define Kp 0.1
+#define Ki 0
+
+#define LINEAR_VEL_CONST                0.075 // Proportional controller gain
+#define ANGULAR_VEL_CONST               0.75  // Proportional controller gain
+#define COSTMAP_FREE_ACCEPTANCE         1     // value from 0 to 255
+#define COSTMAP_OCCUPANCE_ACCEPTANCE    250   // value from 0 to 255
+#define POSE_TO_FOLLOW                  15    // 
+// #define LOCAL_PATH_MIN_SIZE           00030
+#define ARTIFICIAL_TERRAIN_COST_LENGTH  60    // Local costmap units
+#define ARTIFICIAL_TERRAIN_COST_WIDTH   36    // Local costmap units
+
 enum colregs_encounter_type
 {
   HeadOn,
@@ -217,8 +230,8 @@ namespace rra_local_planner {
       ros::Subscriber other_vessel_sub_;
       geometry_msgs::Point other_vessel_pos_;
 
-      static Pos last_astar_goal_;
-      static tf::Stamped<tf::Pose> last_drive_velocities_;
+      Pos  last_astar_goal_;
+      tf::Stamped<tf::Pose> last_drive_velocities_;
       
 
   };
