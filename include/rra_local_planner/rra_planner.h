@@ -79,6 +79,7 @@
 #define ARTIFICIAL_TERRAIN_COST_LENGTH  80    // Local costmap units
 #define ARTIFICIAL_TERRAIN_COST_WIDTH   6     // Local costmap units
 #define CRITICAL_DISTANCE               2
+#define STEERING_ANGLE                  90    // minimun steering_ange error before increase x linear velocity
 
 enum colregs_encounter_type
 {

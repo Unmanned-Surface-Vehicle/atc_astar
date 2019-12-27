@@ -500,7 +500,7 @@ namespace rra_local_planner {
                                 ) - tf::getYaw(global_pose.getRotation());
 
     tf::Vector3 start(0, 0, 0);  
-    if (abs(ang) <= PI/4 )
+    if (fabs(ang) <= STEERING_ANGLE*PI/180 )
     {
           start = tf::Vector3(
                       linear_vel(
@@ -512,10 +512,18 @@ namespace rra_local_planner {
                                 ), 
                       0, 
                       0);
+
+          drive_velocities.setOrigin(start);
       
-    }
+    }else if ( last_astar_goal_.x != -1 && last_astar_goal_.y != -1 )
+    {
+
+      drive_velocities.setOrigin(last_drive_velocities_.getOrigin());
+
+    }else{ drive_velocities.setOrigin(start); }
     
-    drive_velocities.setOrigin(start);    
+    // drive_velocities.setOrigin(start);    
+    // drive_velocities.setOrigin(last_drive_velocities_.getOrigin());        
 
     tf::Matrix3x3 matrix;
     matrix.setRotation(
@@ -558,6 +566,8 @@ namespace rra_local_planner {
   }
 
   double steering_angle(double goal_x, double goal_y, double self_x, double self_y){
+
+    
     double angle = atan2( goal_y - self_y, goal_x - self_x);
   
     if (angle >= PI)
