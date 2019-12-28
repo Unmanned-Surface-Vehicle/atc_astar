@@ -678,13 +678,13 @@ namespace rra_local_planner {
 
   colregs_encounter_type RRAPlanner::identifyCOLREGSEncounterType(tf::Stamped<tf::Pose>& global_pose){
 
-    // double bearing_angle =  atan2(global_pose.getOrigin().getY() - other_vessel_pose_.position.y,
-    //                              global_pose.getOrigin().getX() - other_vessel_pose_.position.x) 
-    //                         - tf::getYaw(other_vessel_pose_.orientation);
+    double bearing_angle =  atan2(global_pose.getOrigin().getY() - other_vessel_pose_.position.y,
+                                 global_pose.getOrigin().getX() - other_vessel_pose_.position.x) 
+                            - tf::getYaw(other_vessel_pose_.orientation);
 
-    double bearing_angle =  atan2(other_vessel_pose_.position.y - global_pose.getOrigin().getY(),
-                                 other_vessel_pose_.position.x - global_pose.getOrigin().getX()) 
-                            - tf::getYaw(global_pose.getRotation());
+    // double bearing_angle =  atan2(other_vessel_pose_.position.y - global_pose.getOrigin().getY(),
+    //                              other_vessel_pose_.position.x - global_pose.getOrigin().getX()) 
+    //                         - tf::getYaw(global_pose.getRotation());
 
     bearing_angle = (180.0 / PI) * bearing_angle;
 
