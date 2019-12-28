@@ -139,8 +139,8 @@ namespace rra_local_planner {
     alignment_costs_.setStopOnFailure( false );
 
     other_vessel_sub_     = private_nh.subscribe("/diffboat2/state", 1, &RRAPlanner::getOtherVesselOdom_callback, this);
-    other_vessel_pos_.x   = -1;
-    other_vessel_pos_.y   = -1;
+    other_vessel_pose_.position.x   = -1;
+    other_vessel_pose_.position.y   = -1;
 
     last_astar_goal_.x    = -1;
     last_astar_goal_.y    = -1;
@@ -353,9 +353,16 @@ namespace rra_local_planner {
                                                 astar_local_goal_global_frame.y, 
                                                 current_astar_goal.x, 
                                                 current_astar_goal.y);
+
+    // Gets robot current position in local frame reference
+    local_costmap_2d->worldToMapEnforceBounds(  global_pose.getOrigin().getX(), 
+                                                global_pose.getOrigin().getY(), 
+                                                current_pos.x, 
+                                                current_pos.y);
+
     // Evaluate if it is a valid goal
     ROS_INFO("A* goal:    (%d, %d)", current_astar_goal.x, current_astar_goal.y);
-    if ( !isAStarGoalValid( current_astar_goal ) )  // * if A* goal IS NOT valid (out of local costmap OR in occupied cell)
+    if ( !isAValidPlanningPosition( current_astar_goal ) || !isAValidPlanningPosition( current_pos ) )  // * if A* goal IS NOT valid (out of local costmap OR in occupied cell)
     {
 
       ROS_INFO("A* goal INVALID");
@@ -393,13 +400,13 @@ namespace rra_local_planner {
     // Artificial Terrain Cost for COLREGS-COMPLIANCE if is there any other vessel near
     if (isThereAnyOtherVesselNear())
     {
-      colregs_encounter_type risk = identifyCOLREGSEncounterType();
+      colregs_encounter_type risk = identifyCOLREGSEncounterType(global_pose);
 
       // Artificial Terrain Cost for COLREGS-COMPLIANCE
       geometry_msgs::Point diff2_pos;
-      diff2_pos = other_vessel_pos_;
-      other_vessel_pos_.x = -1;
-      other_vessel_pos_.y = -1;
+      diff2_pos = other_vessel_pose_.position;
+      other_vessel_pose_.position.x = -1;
+      other_vessel_pose_.position.y = -1;
 
       std::vector<geometry_msgs::Point> artificial_terrain = createArtificialTerrainCost(diff2_pos);
 
@@ -427,6 +434,7 @@ namespace rra_local_planner {
           graph->walls.insert(Pos{mx, my, 0, double(COSTMAP_OCCUPANCE_ACCEPTANCE)});
 
         }
+        
       }
 
     }
@@ -434,11 +442,7 @@ namespace rra_local_planner {
     // ROS_INFO("A* goal: (%d, %d)", current_astar_goal.x, current_astar_goal.y);
 
     // **** A* search
-    // Gets robot current position in local frame reference
-    local_costmap_2d->worldToMapEnforceBounds(  global_pose.getOrigin().getX(), 
-                                                global_pose.getOrigin().getY(), 
-                                                current_pos.x, 
-                                                current_pos.y);    
+
     // current_pos.x = mx;
     // current_pos.y = my;
     // ROS_INFO("Robot pos:  (%f, %f)", (double) current_pos.x, (double) current_pos.y);
@@ -614,7 +618,7 @@ namespace rra_local_planner {
 
   };
 
-  bool RRAPlanner::isAStarGoalValid(Pos astar_goal){
+  bool RRAPlanner::isAValidPlanningPosition(Pos astar_goal){
 
     return planner_util_->getCostmap()->getCost(astar_goal.x, astar_goal.y) <= COSTMAP_OCCUPANCE_ACCEPTANCE;
     
@@ -654,7 +658,7 @@ namespace rra_local_planner {
 
   void RRAPlanner::getOtherVesselOdom_callback(const nav_msgs::Odometry::ConstPtr& usv_position_msg){
 
-    other_vessel_pos_ = usv_position_msg->pose.pose.position;
+    other_vessel_pose_ = usv_position_msg->pose.pose;
     // ROS_INFO("USV current position: X: %f, Y: %f", usv_current_pos.x, usv_current_pos.y);
     // ROS_INFO("C_x - N_x: %f - %f --- C_y - N_y: %f - %f", usv_current_pos.x, next_goal.x, usv_current_pos.y, next_goal.y);
 
@@ -663,16 +667,50 @@ namespace rra_local_planner {
   // probably could be improved calling only "wordToMap"
   bool RRAPlanner::isThereAnyOtherVesselNear(){
     
-    if ( (other_vessel_pos_.x != -1) && (other_vessel_pos_.y != -1)) // Is there any publishing
+    if ( (other_vessel_pose_.position.x != -1) && (other_vessel_pose_.position.y != -1)) // Is there any publishing
     {
       unsigned int dummy_unsigned_int_x, dummy_unsigned_int_y;
       // identify if other vessel is near (inside local costmap region)
-      return planner_util_->getCostmap()->worldToMap(other_vessel_pos_.x, other_vessel_pos_.y, dummy_unsigned_int_x, dummy_unsigned_int_y);
+      return planner_util_->getCostmap()->worldToMap(other_vessel_pose_.position.x, other_vessel_pose_.position.y, dummy_unsigned_int_x, dummy_unsigned_int_y);
     }
   
   }
 
-  colregs_encounter_type RRAPlanner::identifyCOLREGSEncounterType(){
+  colregs_encounter_type RRAPlanner::identifyCOLREGSEncounterType(tf::Stamped<tf::Pose>& global_pose){
+
+    // double bearing_angle =  atan2(global_pose.getOrigin().getY() - other_vessel_pose_.position.y,
+    //                              global_pose.getOrigin().getX() - other_vessel_pose_.position.x) 
+    //                         - tf::getYaw(other_vessel_pose_.orientation);
+
+    double bearing_angle =  atan2(other_vessel_pose_.position.y - global_pose.getOrigin().getY(),
+                                 other_vessel_pose_.position.x - global_pose.getOrigin().getX()) 
+                            - tf::getYaw(global_pose.getRotation());
+
+    bearing_angle = (180.0 / PI) * bearing_angle;
+
+    ROS_INFO("Bearing angle: %f", bearing_angle);
+
+    if ( (bearing_angle >= -15.0) && (bearing_angle < 15.0) )
+    {
+
+      ROS_INFO("Head On");
+
+    }else if ( (bearing_angle >= 15.0) && (bearing_angle < 112.5) )
+    {
+
+      ROS_INFO("Crossing from RIGHT");
+
+    } else if ( ((bearing_angle >= 112.5) && (bearing_angle < 180.0)) ||  ((bearing_angle >= - 180.0) && (bearing_angle < - 112.5)))
+    {
+
+      ROS_INFO("Overtaking");
+
+    }else if ( (bearing_angle >= -112.5) && (bearing_angle < -15) )
+    {
+
+      ROS_INFO("Crossing from LEFT");
+
+    }
 
     return HeadOn;
   }

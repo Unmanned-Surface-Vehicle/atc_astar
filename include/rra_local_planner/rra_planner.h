@@ -66,7 +66,7 @@
 #include "../../include/AStar/Astar.h"
 // #include "../AStar/Astar.h"
 
-#define PI 3.14159265
+#define PI 3.141592653589793238463
 #define Kp 0.1
 #define Ki 0
 
@@ -186,11 +186,11 @@ namespace rra_local_planner {
        */
       GridWithWeights* costmapToGrid(costmap_2d::Costmap2D *costmap);
 
-      bool isAStarGoalValid(Pos astar_goal);
+      bool isAValidPlanningPosition(Pos astar_goal);
       std::vector<geometry_msgs::Point> createArtificialTerrainCost(geometry_msgs::Point otherVesselPos);
       void getOtherVesselOdom_callback(const nav_msgs::Odometry::ConstPtr& usv_position_msg);
       bool isThereAnyOtherVesselNear();
-      colregs_encounter_type identifyCOLREGSEncounterType();
+      colregs_encounter_type identifyCOLREGSEncounterType(tf::Stamped<tf::Pose>&);
 
     private:
 
@@ -230,7 +230,7 @@ namespace rra_local_planner {
       base_local_planner::SimpleScoredSamplingPlanner scored_sampling_planner_;
 
       ros::Subscriber other_vessel_sub_;
-      geometry_msgs::Point other_vessel_pos_;
+      geometry_msgs::Pose other_vessel_pose_;
 
       Pos  last_astar_goal_;
       tf::Stamped<tf::Pose> last_drive_velocities_;
