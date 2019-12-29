@@ -431,7 +431,7 @@ namespace rra_local_planner {
         if (euclidian_distance(diff2_pos.x, diff2_pos.y, global_pose.getOrigin().getX(), global_pose.getOrigin().getY()) > CRITICAL_DISTANCE)
         {
 
-          graph->walls.insert(Pos{mx, my, 0, double(COSTMAP_OCCUPANCE_ACCEPTANCE)});
+          graph->walls.insert(Pos{mx, my, 0, double(COSTMAP_OCCUPANCE_ACCEPTANCE) +1.0});
 
         }
         
