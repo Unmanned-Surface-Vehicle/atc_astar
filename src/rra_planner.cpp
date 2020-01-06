@@ -360,22 +360,22 @@ namespace rra_local_planner {
                                                 current_pos.x, 
                                                 current_pos.y);
 
-    // Evaluate if it is a valid goal
+    //-----------------------------* Evaluate if goal and current position are valid for planning
     ROS_INFO("A* goal:    (%d, %d)", current_astar_goal.x, current_astar_goal.y);
-    if ( !isAValidPlanningPosition( current_astar_goal ) || !isAValidPlanningPosition( current_pos ) )  // * if A* goal IS NOT valid (out of local costmap OR in occupied cell)
+    if ( !isAValidPlanningPosition( current_astar_goal ) || !isAValidPlanningPosition( current_pos ) )  // * if A* goal or current pos are NOT valid (out of local costmap OR in occupied cell)
     {
 
-      ROS_INFO("A* goal INVALID");
+      ROS_INFO("A* goal or current pos INVALID");
       ROS_INFO("Last A* goal: (%d, %d)", last_astar_goal_.x, last_astar_goal_.y);
 
-      if ( last_astar_goal_.x != -1 && last_astar_goal_.y != -1 ) // * if A* goal IS NOT valid AND last go is valid then use last cmd_vel
+      if ( last_astar_goal_.x != -1 && last_astar_goal_.y != -1 ) // * if A* goal or current pos ARE NOT valid AND last goal is valid then use last cmd_vel
       {
         ROS_INFO("Last A* goal valid");
 
         drive_velocities = last_drive_velocities_;
         result_traj_.cost_ = 12;
 
-      }else                                       // * if A* goal IS NOT valid AND last go IS NOT valid then do not generate any velocity
+      }else                                       // * if A* goal os current pos ARE NOT valid AND last goal IS NOT valid then do not generate any velocity
       {
         ROS_INFO("Last A* goal INVALID");
 
@@ -388,7 +388,7 @@ namespace rra_local_planner {
 
     } // else valid goal
     
-    // * plan and generate new cmd_vel
+    //-----------------------------* plan and generate new cmd_vel
 
     // Converts Costmap to graph to be used in the A* method
     graph = costmapToGrid( local_costmap_2d );
@@ -396,7 +396,7 @@ namespace rra_local_planner {
     ROS_INFO("Costmap size: %d x %d", planner_util_->getCostmap()->getSizeInCellsX(), planner_util_->getCostmap()->getSizeInCellsY());
     // ROS_INFO("Costmap resolution: %f ", planner_util_->getCostmap()->getResolution());
     
-    // **** creates artificial terrain cost
+    //-----------------------------* creates artificial terrain cost
     // Artificial Terrain Cost for COLREGS-COMPLIANCE if is there any other vessel near
     if (isThereAnyOtherVesselNear())
     {
@@ -441,7 +441,7 @@ namespace rra_local_planner {
 
     // ROS_INFO("A* goal: (%d, %d)", current_astar_goal.x, current_astar_goal.y);
 
-    // **** A* search
+    //-----------------------------* A* search
 
     // current_pos.x = mx;
     // current_pos.y = my;
@@ -487,7 +487,7 @@ namespace rra_local_planner {
     }
 
 
-    // **** generate cmd_vel
+    //-----------------------------* generate cmd_vel
 
     Eigen::Vector3f pos(global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), tf::getYaw(global_pose.getRotation()));
     // debrief stateful scoring functions
@@ -698,7 +698,7 @@ namespace rra_local_planner {
     }else if ( (bearing_angle >= 15.0) && (bearing_angle < 112.5) )
     {
 
-      ROS_INFO("Crossing from RIGHT");
+      ROS_INFO("Crossing from LEFT");
 
     } else if ( ((bearing_angle >= 112.5) && (bearing_angle < 180.0)) ||  ((bearing_angle >= - 180.0) && (bearing_angle < - 112.5)))
     {
@@ -708,7 +708,7 @@ namespace rra_local_planner {
     }else if ( (bearing_angle >= -112.5) && (bearing_angle < -15) )
     {
 
-      ROS_INFO("Crossing from LEFT");
+      ROS_INFO("Crossing from RIGHT");
 
     }
 
