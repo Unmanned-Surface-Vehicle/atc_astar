@@ -378,11 +378,7 @@ namespace rra_local_planner {
       g_itr--;
     }
     
-<<<<<<< HEAD
     //-----------------------------* Evaluate if goal and current position are valid for planning
-=======
-
->>>>>>> d4289090aae0ec403ca9683579fce134b833d389
     if ( !isAValidPlanningPosition( current_astar_goal ) || !isAValidPlanningPosition( current_pos ) )  // * if A* goal or current pos are NOT valid (out of local costmap OR in occupied cell)
     {
 
