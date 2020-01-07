@@ -362,6 +362,24 @@ namespace rra_local_planner {
 
     //-----------------------------* Evaluate if goal and current position are valid for planning
     // ROS_INFO("A* goal:    (%d, %d)", current_astar_goal.x, current_astar_goal.y);
+
+    // try farest A* goal
+    std::vector<geometry_msgs::PoseStamped>::iterator g_itr;
+    g_itr = global_plan_.end();
+    while (!isAValidPlanningPosition(current_astar_goal) && (g_itr != global_plan_.begin()) )
+    {
+
+      astar_local_goal_global_frame = (*g_itr).pose.position;
+
+      // Gets closer global plan position in local frame reference
+      local_costmap_2d->worldToMapEnforceBounds(  astar_local_goal_global_frame.x, 
+                                                  astar_local_goal_global_frame.y, 
+                                                  current_astar_goal.x, 
+                                                  current_astar_goal.y);
+      g_itr--;
+    }
+    
+
     if ( !isAValidPlanningPosition( current_astar_goal ) || !isAValidPlanningPosition( current_pos ) )  // * if A* goal or current pos are NOT valid (out of local costmap OR in occupied cell)
     {
 
