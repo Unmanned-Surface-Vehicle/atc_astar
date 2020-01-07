@@ -326,6 +326,9 @@ namespace rra_local_planner {
       tf::Stamped<tf::Pose>& drive_velocities) 
   {
 
+    global_vel_.position.x = global_vel.getOrigin().getX();
+    global_vel_.position.y = global_vel.getOrigin().getY();
+
     //make sure that our configuration doesn't change mid-run
     boost::mutex::scoped_lock l(configuration_mutex_);
 
@@ -1067,10 +1070,10 @@ namespace rra_local_planner {
 
   void RRAPlanner::getOtherVesselOdom_callback(const nav_msgs::Odometry::ConstPtr& usv_position_msg){
 
-    other_vessel_pose_ = usv_position_msg->pose.pose;
+    other_vessel_pose_  = usv_position_msg->pose.pose;
+    other_vessel_vel_   = usv_position_msg->twist.twist;
     // ROS_INFO("USV current position: X: %f, Y: %f", usv_current_pos.x, usv_current_pos.y);
     // ROS_INFO("C_x - N_x: %f - %f --- C_y - N_y: %f - %f", usv_current_pos.x, next_goal.x, usv_current_pos.y, next_goal.y);
-
   }
 
   // probably could be improved calling only "wordToMap"
@@ -1087,6 +1090,46 @@ namespace rra_local_planner {
 
   colregs_encounter_type RRAPlanner::identifyCOLREGSEncounterType(tf::Stamped<tf::Pose>& global_pose)
   {
+
+    double tCPA, dCPA;
+    double x, y, vx, vy;
+    double PAx, PAy, PBx, PBy, VAx, VAy, VBx, VBy;
+
+    PAx = global_pose.getOrigin().getX();
+    PAy = global_pose.getOrigin().getY();
+    PBx = other_vessel_pose_.position.x;
+    PBy = other_vessel_pose_.position.y;
+    VAx = global_vel_.position.x;
+    VAy = global_vel_.position.y;
+    VBx = other_vessel_vel_.linear.x;
+    VBy = other_vessel_vel_.linear.y;
+
+    x   = PAx - PBx;
+    y   = PAy - PBy;
+    vx  = VAx - VBx;
+    vy  = VAy - VBy;
+
+    std::vector<double> a{x, y};
+    std::vector<double> b{vx, vy};
+    // double r1 = std::inner_product(a.begin(), a.end(), b.begin(), 0);
+    double r1 = 0;
+    r1 = r1 + a[0] * b[0] + a[1] * b[1];
+    double magnitude = sqrt((vx * vx) + (vy * vy));
+
+    tCPA = fabs(r1) / magnitude;
+
+    x = PAx + VAx * tCPA;
+    y = PAy + VAy * tCPA;
+
+    x -= PBx + VBx * tCPA;
+    y -= PBy + VBy * tCPA;
+
+    dCPA = sqrt((x * x) + (y * y));
+
+    ROS_INFO("r1: %f", r1);
+    ROS_INFO("magnitude: %f", magnitude);
+    ROS_INFO("tCPA: %f", tCPA);
+    ROS_INFO("dCPA: %f", dCPA);
 
     double other_ori = tf::getYaw(other_vessel_pose_.orientation);  // rad
     other_ori *= (180.0 / PI);                                      // degree

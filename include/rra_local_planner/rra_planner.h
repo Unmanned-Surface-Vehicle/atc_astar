@@ -70,8 +70,8 @@
 #define Kp 0.1
 #define Ki 0
 
-#define LINEAR_VEL_CONST                0.075 // Proportional controller gain
-#define ANGULAR_VEL_CONST               0.75  // Proportional controller gain
+#define LINEAR_VEL_CONST                0.2 // Proportional controller gain
+#define ANGULAR_VEL_CONST               1.0  // Proportional controller gain
 #define COSTMAP_FREE_ACCEPTANCE         1     // value from 0 to 255
 #define COSTMAP_OCCUPANCE_ACCEPTANCE    250   // value from 0 to 255
 #define POSE_TO_FOLLOW                  15    // 
@@ -230,11 +230,13 @@ namespace rra_local_planner {
 
       base_local_planner::SimpleScoredSamplingPlanner scored_sampling_planner_;
 
-      ros::Subscriber other_vessel_sub_;
-      geometry_msgs::Pose other_vessel_pose_;
+      ros::Subscriber                     other_vessel_sub_;
+      geometry_msgs::Pose                 other_vessel_pose_;
+      geometry_msgs::Twist                other_vessel_vel_;
 
-      Pos  last_astar_goal_;
+      Pos                   last_astar_goal_;
       tf::Stamped<tf::Pose> last_drive_velocities_;
+      geometry_msgs::Pose   global_vel_;
       
 
   };
