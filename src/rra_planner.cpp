@@ -409,7 +409,7 @@ namespace rra_local_planner {
       other_vessel_pose_.position.y = -1;
 
       unsigned short int sector = 0;
-      double ori = (180 / PI) * tf::getYaw(global_pose.getRotation());
+      double ori = (180.0 / PI) * tf::getYaw(global_pose.getRotation());
 
       if (ori >= -45 && ori < 45)
       {
@@ -1071,15 +1071,38 @@ namespace rra_local_planner {
   colregs_encounter_type RRAPlanner::identifyCOLREGSEncounterType(tf::Stamped<tf::Pose>& global_pose)
   {
 
-    double bearing_angle =  atan2(global_pose.getOrigin().getY() - other_vessel_pose_.position.y,
-                                 global_pose.getOrigin().getX() - other_vessel_pose_.position.x) 
-                            - tf::getYaw(other_vessel_pose_.orientation);
+    double other_ori = tf::getYaw(other_vessel_pose_.orientation);  // rad
+    other_ori *= (180.0 / PI);                                      // degree
+    other_ori = other_ori < 0 ? other_ori + 360 : other_ori;        // positive degree
+    other_ori /= (180.0 / PI);                                      // positive rad
+
+    double bearing_angle = atan2( global_pose.getOrigin().getY() - other_vessel_pose_.position.y,
+                                  global_pose.getOrigin().getX() - other_vessel_pose_.position.x) -
+                                  other_ori;
 
     // double bearing_angle =  atan2(other_vessel_pose_.position.y - global_pose.getOrigin().getY(),
     //                              other_vessel_pose_.position.x - global_pose.getOrigin().getX()) 
     //                         - tf::getYaw(global_pose.getRotation());
 
-    bearing_angle = (180.0 / PI) * bearing_angle;
+    bearing_angle = (180.0 / PI) * bearing_angle; // rad to degree
+
+    if ( fabs(bearing_angle) > 360 )                    // angles bigger than 360 adjustment
+    {
+      int fact = (int)abs(bearing_angle / 360);
+      if (bearing_angle < 0)
+      {
+        bearing_angle = bearing_angle - fact * (-360);
+      }
+      else
+      {
+        bearing_angle = bearing_angle - fact * (360);
+      }
+    }
+
+    if (bearing_angle < -180)
+    {
+      bearing_angle += 360;
+    }
 
     ROS_INFO("Bearing angle: %f", bearing_angle);
 
@@ -1092,14 +1115,14 @@ namespace rra_local_planner {
     }else if ( (bearing_angle >= 15.0) && (bearing_angle < 112.5) )
     {
 
-      ROS_INFO("Crossing from LEFT");
-      return Left;
+      ROS_INFO("Crossing from RIGHT");
+      return Right;
 
     } else if ( ((bearing_angle >= 112.5) && (bearing_angle < 180.0)) ||  ((bearing_angle >= - 180.0) && (bearing_angle < - 112.5)) )
     {
 
-      double usv_ori    = (180/PI)*tf::getYaw(global_pose.getRotation());
-      double other_ori  = (180/PI)*tf::getYaw(other_vessel_pose_.orientation);
+      double usv_ori    = (180.0 / PI)*tf::getYaw(global_pose.getRotation());
+      double other_ori  = (180.0 / PI)*tf::getYaw(other_vessel_pose_.orientation);
 
       usv_ori   = usv_ori   < 0 ? usv_ori   + 360 : usv_ori;
       other_ori = other_ori < 0 ? other_ori + 360 : other_ori;
@@ -1114,8 +1137,8 @@ namespace rra_local_planner {
     }else if ( (bearing_angle >= -112.5) && (bearing_angle < -15) )
     {
 
-      ROS_INFO("Crossing from RIGHT");
-      return Right;
+      ROS_INFO("Crossing from LEFT");
+      return Left;
 
     }
 
