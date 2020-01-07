@@ -361,23 +361,23 @@ namespace rra_local_planner {
                                                 current_pos.y);
 
     //-----------------------------* Evaluate if goal and current position are valid for planning
-    ROS_INFO("A* goal:    (%d, %d)", current_astar_goal.x, current_astar_goal.y);
+    // ROS_INFO("A* goal:    (%d, %d)", current_astar_goal.x, current_astar_goal.y);
     if ( !isAValidPlanningPosition( current_astar_goal ) || !isAValidPlanningPosition( current_pos ) )  // * if A* goal or current pos are NOT valid (out of local costmap OR in occupied cell)
     {
 
-      ROS_INFO("A* goal or current pos INVALID");
-      ROS_INFO("Last A* goal: (%d, %d)", last_astar_goal_.x, last_astar_goal_.y);
+      // ROS_INFO("A* goal or current pos INVALID");
+      // ROS_INFO("Last A* goal: (%d, %d)", last_astar_goal_.x, last_astar_goal_.y);
 
       if ( last_astar_goal_.x != -1 && last_astar_goal_.y != -1 ) // * if A* goal or current pos ARE NOT valid AND last goal is valid then use last cmd_vel
       {
-        ROS_INFO("Last A* goal valid");
+        // ROS_INFO("Last A* goal valid");
 
         drive_velocities = last_drive_velocities_;
         result_traj_.cost_ = 12;
 
       }else                                       // * if A* goal os current pos ARE NOT valid AND last goal IS NOT valid then do not generate any velocity
       {
-        ROS_INFO("Last A* goal INVALID");
+        // ROS_INFO("Last A* goal INVALID");
 
         drive_velocities.setIdentity();
         result_traj_.cost_ = -7;
@@ -393,14 +393,14 @@ namespace rra_local_planner {
     // Converts Costmap to graph to be used in the A* method
     graph = costmapToGrid( local_costmap_2d );
     // std::cout << "Finished conversion" << std::endl;
-    ROS_INFO("Costmap size: %d x %d", planner_util_->getCostmap()->getSizeInCellsX(), planner_util_->getCostmap()->getSizeInCellsY());
+    // ROS_INFO("Costmap size: %d x %d", planner_util_->getCostmap()->getSizeInCellsX(), planner_util_->getCostmap()->getSizeInCellsY());
     // ROS_INFO("Costmap resolution: %f ", planner_util_->getCostmap()->getResolution());
     
     //-----------------------------* creates artificial terrain cost
     // Artificial Terrain Cost for COLREGS-COMPLIANCE if is there any other vessel near
     if (isThereAnyOtherVesselNear())
     {
-      colregs_encounter_type risk = identifyCOLREGSEncounterType(global_pose);
+      colregs_encounter_type  risk        = identifyCOLREGSEncounterType(global_pose);
 
       // Artificial Terrain Cost for COLREGS-COMPLIANCE
       geometry_msgs::Point diff2_pos;
@@ -408,7 +408,29 @@ namespace rra_local_planner {
       other_vessel_pose_.position.x = -1;
       other_vessel_pose_.position.y = -1;
 
-      std::vector<geometry_msgs::Point> artificial_terrain = createArtificialTerrainCost(diff2_pos);
+      unsigned short int sector = 0;
+      double ori = (180 / PI) * tf::getYaw(global_pose.getRotation());
+
+      if (ori >= -45 && ori < 45)
+      {
+        sector = 1;
+      }
+      else if (ori >= 45 && ori < 135)
+      {
+        sector = 2;
+      }
+      else if ((ori >= 135 && ori < 180) || (ori >= -180 && ori < -135))
+      {
+        sector = 3;
+      }
+      else if (ori >= -135 && ori < -45)
+      {
+        sector = 4;
+      }
+      
+      
+
+      std::vector<geometry_msgs::Point> artificial_terrain = createArtificialTerrainCost(diff2_pos, risk, sector);
 
       // std::cout << "Artificial Terrain: " << std::endl;
       // for (auto pos = artificial_terrain.end()-1; pos != artificial_terrain.begin(); pos--)
@@ -624,31 +646,401 @@ namespace rra_local_planner {
     
   }
 
-  std::vector<geometry_msgs::Point> RRAPlanner::createArtificialTerrainCost(geometry_msgs::Point otherVesselPos)  {
+  std::vector<geometry_msgs::Point> RRAPlanner::createArtificialTerrainCost(geometry_msgs::Point otherVesselPos, colregs_encounter_type risk, unsigned short int sector)  {
 
     std::vector<geometry_msgs::Point> artificial_terrain  ;
 
     geometry_msgs::Point pos  ;
 
+    //// identify ori
+    // double otherVessel_orientation = (180.0 / PI) * tf::getYaw(other_vessel_pose_.orientation);
+
+    // ROS_INFO("Other Vessel ori: %f", otherVessel_orientation);
+    
+    // double obstacle_orientation = otherVessel_orientation < 90 ? otherVessel_orientation + 90 : otherVessel_orientation - 270;
+
+    // ROS_INFO("Obstacle ori: %f", obstacle_orientation);
+
+    // if Headon
+    //// creates obstacle based on ori
+    // else if Crossing_Rigth
+    //// creates obstacle based on ori
+    // else if Crossing_Left
+    //// creates obstacle based on ori
+    // else if Overtaking
+    //// creates obstacle based on ori
+
     short int width, length, x_offset;
-
-    // Hardcoded ajustments
-    width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
-    length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
-    x_offset  = 1; 
-
-    for (short int j = - width/2; j < width/2; j++)
+    
+    switch (risk)
     {
+    case HeadOn:
+      switch (sector)
+      {
+      case 1:
+        ROS_INFO("HeadOn S1");
+        // Hardcoded ajustments
+        width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
+        length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
+        x_offset  = 1;
 
-      for (unsigned short int i = 1; i <= length; i++)
-      { 
-        double res = planner_util_->getCostmap()->getResolution();
-        pos.x = otherVesselPos.x + j*res - x_offset*res;
-        pos.y = otherVesselPos.y + i*res;
-        artificial_terrain.push_back(pos);
+        // Artificial obstacle creation
+        for (short int j = -width / 2; j < width / 2; j++)
+        {
+
+          for (unsigned short int i = 1; i <= length; i++)
+          { 
+            double res = planner_util_->getCostmap()->getResolution();
+
+            pos.x = otherVesselPos.x + j*res - x_offset*res;
+            pos.y = otherVesselPos.y + i*res;
+
+            artificial_terrain.push_back(pos);
+          }
+
+        }
+        break;
+      
+      case 2:
+        ROS_INFO("HeadOn S2");
+        // Hardcoded ajustments
+        width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
+        length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
+        x_offset  = 1;
+
+        // Artificial obstacle creation
+        for (short int j = -width / 2; j < width / 2; j++)
+        {
+
+          for (unsigned short int i = 1; i <= length; i++)
+          { 
+            double res = planner_util_->getCostmap()->getResolution();
+
+            pos.x = otherVesselPos.x - i*res;
+            pos.y = otherVesselPos.y + j*res - x_offset*res;
+
+            artificial_terrain.push_back(pos);
+          }
+
+        }
+        break;
+      
+      case 3:
+        ROS_INFO("HeadOn S3");
+        // Hardcoded ajustments
+        width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
+        length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
+        x_offset  = 1;
+
+        // Artificial obstacle creation
+        for (short int j = -width / 2; j < width / 2; j++)
+        {
+
+          for (unsigned short int i = 1; i <= length; i++)
+          { 
+            double res = planner_util_->getCostmap()->getResolution();
+
+            pos.x = otherVesselPos.x + j*res - x_offset*res;
+            pos.y = otherVesselPos.y - i*res;
+
+            artificial_terrain.push_back(pos);
+          }
+
+        }
+        break;
+      
+      case 4:
+        ROS_INFO("HeadOn S4");
+        // Hardcoded ajustments
+        width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
+        length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
+        x_offset  = 1;
+
+        // Artificial obstacle creation
+        for (short int j = -width / 2; j < width / 2; j++)
+        {
+
+          for (unsigned short int i = 1; i <= length; i++)
+          { 
+            double res = planner_util_->getCostmap()->getResolution();
+
+            pos.x = otherVesselPos.x + i*res;
+            pos.y = otherVesselPos.y + j*res - x_offset*res;
+
+            artificial_terrain.push_back(pos);
+          }
+
+        }
+        break;
+      
+      default:
+        ROS_INFO("HeadOn No Section");
+        break;
       }
+      break;
+    
+    case Left:
+      switch (sector)
+      {
+      case 1:
+        ROS_INFO("Left S1");
+        break;
+      
+      case 2:
+        ROS_INFO("Left S2");
+        break;
+      
+      case 3:
+        ROS_INFO("Left S3");
+        break;
+      
+      case 4:
+        ROS_INFO("Left S4");
+        break;
+      
+      default:
+        ROS_INFO("Left No Section");
+        break;
+      }
+      break;
+    
+    case Right:
+      switch (sector)
+      {
+      case 1:
+        ROS_INFO("Right S1");
+        // Hardcoded ajustments
+        width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
+        length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
+        x_offset  = 1;
 
+        // Artificial obstacle creation
+        for (short int j = -width / 2; j < width / 2; j++)
+        {
+
+          for (unsigned short int i = 1; i <= length; i++)
+          { 
+            double res = planner_util_->getCostmap()->getResolution();
+
+            pos.x = otherVesselPos.x + j*res - x_offset*res;
+            pos.y = otherVesselPos.y + i*res;
+
+            artificial_terrain.push_back(pos);
+          }
+
+        }
+        break;
+      
+      case 2:
+        ROS_INFO("Right S2");
+        // Hardcoded ajustments
+        width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
+        length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
+        x_offset  = 1;
+
+        // Artificial obstacle creation
+        for (short int j = -width / 2; j < width / 2; j++)
+        {
+
+          for (unsigned short int i = 1; i <= length; i++)
+          { 
+            double res = planner_util_->getCostmap()->getResolution();
+
+            pos.x = otherVesselPos.x - i*res;
+            pos.y = otherVesselPos.y + j*res - x_offset*res;
+
+            artificial_terrain.push_back(pos);
+          }
+
+        }
+        break;
+      
+      case 3:
+        ROS_INFO("Right S3");
+        // Hardcoded ajustments
+        width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
+        length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
+        x_offset  = 1;
+
+        // Artificial obstacle creation
+        for (short int j = -width / 2; j < width / 2; j++)
+        {
+
+          for (unsigned short int i = 1; i <= length; i++)
+          { 
+            double res = planner_util_->getCostmap()->getResolution();
+
+            pos.x = otherVesselPos.x + j*res - x_offset*res;
+            pos.y = otherVesselPos.y - i*res;
+
+            artificial_terrain.push_back(pos);
+          }
+
+        }
+        break;
+      
+      case 4:
+        ROS_INFO("Right S4");
+        // Hardcoded ajustments
+        width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
+        length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
+        x_offset  = 1;
+
+        // Artificial obstacle creation
+        for (short int j = -width / 2; j < width / 2; j++)
+        {
+
+          for (unsigned short int i = 1; i <= length; i++)
+          { 
+            double res = planner_util_->getCostmap()->getResolution();
+
+            pos.x = otherVesselPos.x + i*res;
+            pos.y = otherVesselPos.y + j*res - x_offset*res;
+
+            artificial_terrain.push_back(pos);
+          }
+
+        }
+        break;
+      
+      default:
+        ROS_INFO("Right No Section");
+        break;
+      }
+      break;
+    
+    case Overtaking:
+      switch (sector)
+      {
+      case 1:
+        ROS_INFO("Overtaking S1");
+        // Hardcoded ajustments
+        width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
+        length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
+        x_offset  = 1;
+
+        // Artificial obstacle creation
+        for (short int j = -width / 2; j < width / 2; j++)
+        {
+
+          for (unsigned short int i = 1; i <= length; i++)
+          { 
+            double res = planner_util_->getCostmap()->getResolution();
+
+            pos.x = otherVesselPos.x + i*res;
+            pos.y = otherVesselPos.y + j*res - x_offset*res;
+
+            artificial_terrain.push_back(pos);
+          }
+
+        }
+        break;
+      
+      case 2:
+        ROS_INFO("Overtaking S2");
+        // Hardcoded ajustments
+        width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
+        length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
+        x_offset  = 1;
+
+        // Artificial obstacle creation
+        for (short int j = -width / 2; j < width / 2; j++)
+        {
+
+          for (unsigned short int i = 1; i <= length; i++)
+          { 
+            double res = planner_util_->getCostmap()->getResolution();
+
+            pos.x = otherVesselPos.x + j*res - x_offset*res;
+            pos.y = otherVesselPos.y + i*res;
+
+            artificial_terrain.push_back(pos);
+          }
+
+        }
+        break;
+      
+      case 3:
+        ROS_INFO("Overtaking S3");
+        // Hardcoded ajustments
+        width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
+        length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
+        x_offset  = 1;
+
+        // Artificial obstacle creation
+        for (short int j = -width / 2; j < width / 2; j++)
+        {
+
+          for (unsigned short int i = 1; i <= length; i++)
+          { 
+            double res = planner_util_->getCostmap()->getResolution();
+
+            pos.x = otherVesselPos.x - i*res;
+            pos.y = otherVesselPos.y + j*res - x_offset*res;
+
+            artificial_terrain.push_back(pos);
+          }
+
+        }
+        break;
+      
+      case 4:
+        ROS_INFO("Overtaking S4");
+        // Hardcoded ajustments
+        width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
+        length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
+        x_offset  = 1;
+
+        // Artificial obstacle creation
+        for (short int j = -width / 2; j < width / 2; j++)
+        {
+
+          for (unsigned short int i = 1; i <= length; i++)
+          { 
+            double res = planner_util_->getCostmap()->getResolution();
+
+            pos.x = otherVesselPos.x + j*res - x_offset*res;
+            pos.y = otherVesselPos.y - i*res;
+
+            artificial_terrain.push_back(pos);
+          }
+
+        }
+        break;
+      
+      default:
+        ROS_INFO("Overtaking No Section");
+        break;
+      }
+      break;
+    
+    default:
+      ROS_INFO("NO RISK");
+      break;
     }
+    
+
+
+
+    
+    // // Hardcoded ajustments
+    // width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
+    // length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
+    // x_offset  = 1;
+
+    // // Artificial obstacle creation
+    // for (short int j = -width / 2; j < width / 2; j++)
+    // {
+
+    //   for (unsigned short int i = 1; i <= length; i++)
+    //   { 
+    //     double res = planner_util_->getCostmap()->getResolution();
+    //     pos.x = otherVesselPos.x + j*res - x_offset*res;
+    //     pos.y = otherVesselPos.y + i*res;
+    //     artificial_terrain.push_back(pos);
+    //   }
+
+    // }
     
     
 
@@ -676,7 +1068,8 @@ namespace rra_local_planner {
   
   }
 
-  colregs_encounter_type RRAPlanner::identifyCOLREGSEncounterType(tf::Stamped<tf::Pose>& global_pose){
+  colregs_encounter_type RRAPlanner::identifyCOLREGSEncounterType(tf::Stamped<tf::Pose>& global_pose)
+  {
 
     double bearing_angle =  atan2(global_pose.getOrigin().getY() - other_vessel_pose_.position.y,
                                  global_pose.getOrigin().getX() - other_vessel_pose_.position.x) 
@@ -694,25 +1087,39 @@ namespace rra_local_planner {
     {
 
       ROS_INFO("Head On");
+      return HeadOn;
 
     }else if ( (bearing_angle >= 15.0) && (bearing_angle < 112.5) )
     {
 
       ROS_INFO("Crossing from LEFT");
+      return Left;
 
-    } else if ( ((bearing_angle >= 112.5) && (bearing_angle < 180.0)) ||  ((bearing_angle >= - 180.0) && (bearing_angle < - 112.5)))
+    } else if ( ((bearing_angle >= 112.5) && (bearing_angle < 180.0)) ||  ((bearing_angle >= - 180.0) && (bearing_angle < - 112.5)) )
     {
 
-      ROS_INFO("Overtaking");
+      double usv_ori    = (180/PI)*tf::getYaw(global_pose.getRotation());
+      double other_ori  = (180/PI)*tf::getYaw(other_vessel_pose_.orientation);
 
+      usv_ori   = usv_ori   < 0 ? usv_ori   + 360 : usv_ori;
+      other_ori = other_ori < 0 ? other_ori + 360 : other_ori;
+
+      if ( fabs(usv_ori - other_ori) > 90 )
+      {
+        return null;
+      }
+    
+      ROS_INFO("Overtaking");
+      return Overtaking;
     }else if ( (bearing_angle >= -112.5) && (bearing_angle < -15) )
     {
 
       ROS_INFO("Crossing from RIGHT");
+      return Right;
 
     }
 
-    return HeadOn;
+    return null;
   }
 
 };

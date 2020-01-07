@@ -86,7 +86,8 @@ enum colregs_encounter_type
   HeadOn,
   Left,
   Right,
-  Overtaking
+  Overtaking, 
+  null
 };
 
 namespace rra_local_planner {
@@ -187,7 +188,7 @@ namespace rra_local_planner {
       GridWithWeights* costmapToGrid(costmap_2d::Costmap2D *costmap);
 
       bool isAValidPlanningPosition(Pos astar_goal);
-      std::vector<geometry_msgs::Point> createArtificialTerrainCost(geometry_msgs::Point otherVesselPos);
+      std::vector<geometry_msgs::Point> createArtificialTerrainCost(geometry_msgs::Point otherVesselPos, colregs_encounter_type risk, unsigned short int sector);
       void getOtherVesselOdom_callback(const nav_msgs::Odometry::ConstPtr& usv_position_msg);
       bool isThereAnyOtherVesselNear();
       colregs_encounter_type identifyCOLREGSEncounterType(tf::Stamped<tf::Pose>&);

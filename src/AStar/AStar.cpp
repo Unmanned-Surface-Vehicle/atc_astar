@@ -14,7 +14,7 @@ namespace AStar
     std::unordered_map<Pos, double> &cost_so_far)
   {
     
-    std::cout << "Started A* Search" << std::endl;
+    // std::cout << "Started A* Search" << std::endl;
 
     PriorityQueue<Pos, double> frontier;                                      // Ordering frontier exploration by lowest cost
     frontier.put(start, 0);                                                   // Frontier exploration starts on start point
@@ -45,8 +45,8 @@ namespace AStar
       }
     }
 
-    std::cout << "Finished A* Search" << std::endl;
-    std::cout << "Start: (" << start.x << ", " << start.y << ")" << std::endl;
+    // std::cout << "Finished A* Search" << std::endl;
+    // std::cout << "Start: (" << start.x << ", " << start.y << ")" << std::endl;
 
   }
 
@@ -59,7 +59,7 @@ namespace AStar
     std::vector<Pos> path;
     Pos current = goal;
 
-    std::cout << "Goal: (" << goal.x << ", " << goal.y << ")" << std::endl;
+    // std::cout << "Goal: (" << goal.x << ", " << goal.y << ")" << std::endl;
 
     // while ( (current != start) && ((current.x != 0) && (current.y !=0)) )
     while ( current != start )
@@ -99,7 +99,7 @@ namespace AStar
       current = came_from[current];
 
     }
-    std::cout << "Came from size: " << came_from.size() << std::endl;
+    // std::cout << "Came from size: " << came_from.size() << std::endl;
     path.push_back(start); // optional
     std::reverse(path.begin(), path.end());
     return path;
