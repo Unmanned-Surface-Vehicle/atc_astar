@@ -67,11 +67,15 @@
 // #include "../AStar/Astar.h"
 
 #define PI 3.141592653589793238463
-#define Kp 0.1
-#define Ki 0
+// #define Kp 0.1
+// #define Ki 0
 
-#define LINEAR_VEL_CONST                0.2 // Proportional controller gain
-#define ANGULAR_VEL_CONST               1.0  // Proportional controller gain
+#define PID_Kp_LINEAR                   0.1   // Proportional controller gain
+#define PID_Kp_ANGULAR                  0.2   // Proportional controller gain
+
+#define PID_Ki_LINEAR                   0.0   // Proportional controller gain
+#define PID_Ki_ANGULAR                  0.0   // Proportional controller gain
+
 #define COSTMAP_FREE_ACCEPTANCE         1     // value from 0 to 255
 #define COSTMAP_OCCUPANCE_ACCEPTANCE    250   // value from 0 to 255
 #define POSE_TO_FOLLOW                  15    // 
@@ -192,6 +196,8 @@ namespace rra_local_planner {
       void getOtherVesselOdom_callback(const nav_msgs::Odometry::ConstPtr& usv_position_msg);
       bool isThereAnyOtherVesselNear();
       colregs_encounter_type identifyCOLREGSEncounterType(tf::Stamped<tf::Pose>&);
+      double angular_vel(double goal_x, double goal_y, double self_x, double self_y, double self_th, double constt);
+      double linear_vel(double goal_x, double goal_y, double self_x, double self_y, double constt);
 
     private:
 
@@ -237,8 +243,10 @@ namespace rra_local_planner {
       Pos                   last_astar_goal_;
       tf::Stamped<tf::Pose> last_drive_velocities_;
       geometry_msgs::Pose   global_vel_;
-      
 
+      double pid_I_linear_;
+      double pid_I_angular_;
+  
   };
 };
 #endif

@@ -54,7 +54,7 @@ namespace rra_local_planner {
 
   double euclidian_distance (double goal_x, double goal_y, double current_x, double current_y);
   double linear_vel         (double goal_x, double goal_y, double current_x, double current_y, double constt = 1);
-  double angular_vel        (double goal_x, double goal_y, double current_x, double current_y, double self_th, double constt = 1);
+  // double angular_vel        (double goal_x, double goal_y, double current_x, double current_y, double self_th, double constt = 1);
   double steering_angle     (double goal_x, double goal_y, double current_x, double current_y);
 
   void RRAPlanner::reconfigure(RRAPlannerConfig &config)
@@ -97,8 +97,6 @@ namespace rra_local_planner {
     vx_samp = config.vx_samples;
     vy_samp = config.vy_samples;
     vth_samp = config.vth_samples;
-
-    double I = 0;
 
     if (vx_samp <= 0) {
       ROS_WARN("You've specified that you don't want any samples in the x dimension. We'll at least assume that you want to sample one value... so we're going to set vx_samples to 1 instead");
@@ -144,6 +142,9 @@ namespace rra_local_planner {
 
     last_astar_goal_.x    = -1;
     last_astar_goal_.y    = -1;
+
+    pid_I_linear_   = 0;
+    pid_I_angular_  = 0;
 
     //Assuming this planner is being run within the navigation stack, we can
     //just do an upward search for the frequency at which its being run. This
@@ -554,7 +555,7 @@ namespace rra_local_planner {
                                   local_path_at_global_frame[local_path_index_to_follow].y, 
                                   global_pose.getOrigin().getX(), 
                                   global_pose.getOrigin().getY(), 
-                                  LINEAR_VEL_CONST
+                                  PID_Kp_LINEAR
                                 ), 
                       0, 
                       0);
@@ -578,7 +579,7 @@ namespace rra_local_planner {
                                                     local_path_at_global_frame[local_path_index_to_follow].y, global_pose.getOrigin().getX(), 
                                                     global_pose.getOrigin().getY(), 
                                                     tf::getYaw(global_pose.getRotation()), 
-                                                    ANGULAR_VEL_CONST)
+                                                    PID_Kp_ANGULAR)
                                                     )
                       );
     drive_velocities.setBasis(matrix);
@@ -597,18 +598,25 @@ namespace rra_local_planner {
 
   // As outlined in Section 4.1.1, a simple heading proportional
   // controller based on Bertaska2015Experimental and Go to Goal ROS move_base tutorial
-  double linear_vel(double goal_x, double goal_y, double self_x, double self_y, double constt){
-    return constt * euclidian_distance(goal_x, goal_y, self_x, self_y);
+  double RRAPlanner::linear_vel(double goal_x, double goal_y, double self_x, double self_y, double constt){
+    // return constt * euclidian_distance(goal_x, goal_y, self_x, self_y);
+
+    double err = euclidian_distance(goal_x, goal_y, self_x, self_y);
+    double P = PID_Kp_LINEAR * err;
+    pid_I_linear_ += PID_Ki_LINEAR * err;
+
+    return P + pid_I_linear_;
+
   }
 
-  double angular_vel(double goal_x, double goal_y, double self_x, double self_y, double self_th, double constt){
-    return constt * (steering_angle(goal_x, goal_y, self_x, self_y) - self_th);
+  double RRAPlanner::angular_vel(double goal_x, double goal_y, double self_x, double self_y, double self_th, double constt){
+    // return constt * (steering_angle(goal_x, goal_y, self_x, self_y) - self_th);
 
-    // double err = steering_angle(goal_pos, self_x, self_y) - self_th;
-    // double P = Kp * err;
-    // I += Ki * err;
+    double err = steering_angle(goal_x, goal_y, self_x, self_y) - self_th;
+    double P = PID_Kp_ANGULAR * err;
+    pid_I_angular_ += PID_Ki_ANGULAR * err;
 
-    // return P + I;yy
+    return P + pid_I_angular_;
   }
 
   double steering_angle(double goal_x, double goal_y, double self_x, double self_y){
@@ -1091,45 +1099,45 @@ namespace rra_local_planner {
   colregs_encounter_type RRAPlanner::identifyCOLREGSEncounterType(tf::Stamped<tf::Pose>& global_pose)
   {
 
-    double tCPA, dCPA;
-    double x, y, vx, vy;
-    double PAx, PAy, PBx, PBy, VAx, VAy, VBx, VBy;
+    // double tCPA, dCPA;
+    // double x, y, vx, vy;
+    // double PAx, PAy, PBx, PBy, VAx, VAy, VBx, VBy;
 
-    PAx = global_pose.getOrigin().getX();
-    PAy = global_pose.getOrigin().getY();
-    PBx = other_vessel_pose_.position.x;
-    PBy = other_vessel_pose_.position.y;
-    VAx = global_vel_.position.x;
-    VAy = global_vel_.position.y;
-    VBx = other_vessel_vel_.linear.x;
-    VBy = other_vessel_vel_.linear.y;
+    // PAx = global_pose.getOrigin().getX();
+    // PAy = global_pose.getOrigin().getY();
+    // PBx = other_vessel_pose_.position.x;
+    // PBy = other_vessel_pose_.position.y;
+    // VAx = global_vel_.position.x;
+    // VAy = global_vel_.position.y;
+    // VBx = other_vessel_vel_.linear.x;
+    // VBy = other_vessel_vel_.linear.y;
 
-    x   = PAx - PBx;
-    y   = PAy - PBy;
-    vx  = VAx - VBx;
-    vy  = VAy - VBy;
+    // x   = PAx - PBx;
+    // y   = PAy - PBy;
+    // vx  = VAx - VBx;
+    // vy  = VAy - VBy;
 
-    std::vector<double> a{x, y};
-    std::vector<double> b{vx, vy};
-    // double r1 = std::inner_product(a.begin(), a.end(), b.begin(), 0);
-    double r1 = 0;
-    r1 = r1 + a[0] * b[0] + a[1] * b[1];
-    double magnitude = sqrt((vx * vx) + (vy * vy));
+    // std::vector<double> a{x, y};
+    // std::vector<double> b{vx, vy};
+    // // double r1 = std::inner_product(a.begin(), a.end(), b.begin(), 0);
+    // double r1 = 0;
+    // r1 = r1 + a[0] * b[0] + a[1] * b[1];
+    // double magnitude = sqrt((vx * vx) + (vy * vy));
 
-    tCPA = fabs(r1) / magnitude;
+    // tCPA = fabs(r1) / magnitude;
 
-    x = PAx + VAx * tCPA;
-    y = PAy + VAy * tCPA;
+    // x = PAx + VAx * tCPA;
+    // y = PAy + VAy * tCPA;
 
-    x -= PBx + VBx * tCPA;
-    y -= PBy + VBy * tCPA;
+    // x -= PBx + VBx * tCPA;
+    // y -= PBy + VBy * tCPA;
 
-    dCPA = sqrt((x * x) + (y * y));
+    // dCPA = sqrt((x * x) + (y * y));
 
-    ROS_INFO("r1: %f", r1);
-    ROS_INFO("magnitude: %f", magnitude);
-    ROS_INFO("tCPA: %f", tCPA);
-    ROS_INFO("dCPA: %f", dCPA);
+    // ROS_INFO("r1: %f", r1);
+    // ROS_INFO("magnitude: %f", magnitude);
+    // ROS_INFO("tCPA: %f", tCPA);
+    // ROS_INFO("dCPA: %f", dCPA);
 
     double other_ori = tf::getYaw(other_vessel_pose_.orientation);  // rad
     other_ori *= (180.0 / PI);                                      // degree
