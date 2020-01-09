@@ -1172,7 +1172,9 @@ namespace rra_local_planner {
       bearing_angle += 360;
     }
 
-    ROS_INFO("Bearing angle: %f", bearing_angle);
+    ROS_INFO("Steering angle:   %f", (180.0 / PI) * atan2( global_pose.getOrigin().getY() - other_vessel_pose_.position.y, global_pose.getOrigin().getX() - other_vessel_pose_.position.x));
+    ROS_INFO("Other vessel ori: %f", (180.0 / PI) * other_ori);
+    ROS_INFO("Bearing angle:    %f", bearing_angle);
 
     if ( (bearing_angle >= -15.0) && (bearing_angle < 15.0) )
     {
