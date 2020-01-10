@@ -351,6 +351,8 @@ namespace rra_local_planner {
     //   global_plan_.back().pose.position.y,  
     //   global_plan_.front().pose.position.x, 
     //   global_plan_.front().pose.position.y);
+    
+    //-----------------------------* Evaluate if goal and current position are valid for planning
 
     // Gets closer global plan position in local frame reference
     local_costmap_2d->worldToMapEnforceBounds(  astar_local_goal_global_frame.x, 
@@ -369,6 +371,16 @@ namespace rra_local_planner {
     // searches for farest valid A* goal
     std::vector<geometry_msgs::PoseStamped>::iterator g_itr;
     g_itr = global_plan_.end();
+
+    if (!isAValidPlanningPosition(current_astar_goal))
+    {
+      ROS_INFO("Invalid current A* goal, before while");
+    }
+    if (g_itr != global_plan_.begin())
+    {
+      ROS_INFO("g_itr != global_plan_.begin(), before while");
+    }
+    
     while (!isAValidPlanningPosition(current_astar_goal) && (g_itr != global_plan_.begin()) )
     {
 
@@ -381,8 +393,17 @@ namespace rra_local_planner {
                                                   current_astar_goal.y);
       g_itr--;
     }
-    
-    //-----------------------------* Evaluate if goal and current position are valid for planning
+
+    if (!isAValidPlanningPosition(current_astar_goal))
+    {
+      ROS_INFO("Invalid current A* goal, after while");
+    }
+
+    if (!isAValidPlanningPosition(current_pos))
+    {
+      ROS_INFO("Invalid current pos, after while");
+    }
+
     if ( !isAValidPlanningPosition( current_astar_goal ) || !isAValidPlanningPosition( current_pos ) )  // * if A* goal or current pos are NOT valid (out of local costmap OR in occupied cell)
     {
 
@@ -430,7 +451,7 @@ namespace rra_local_planner {
       other_vessel_pose_.position.y = -1;
 
       unsigned short int sector = 0;
-      double ori = (180.0 / PI) * tf::getYaw(global_pose.getRotation());
+      double ori = (180.0 / M_PI) * tf::getYaw(global_pose.getRotation());
 
       if (ori >= -45 && ori < 45)
       {
@@ -482,7 +503,7 @@ namespace rra_local_planner {
 
     }
 
-    // ROS_INFO("A* goal: (%d, %d)", current_astar_goal.x, current_astar_goal.y);
+    ROS_INFO("A* goal: (%d, %d)", current_astar_goal.x, current_astar_goal.y);
 
     //-----------------------------* A* search
 
@@ -491,10 +512,10 @@ namespace rra_local_planner {
     // ROS_INFO("Robot pos:  (%f, %f)", (double) current_pos.x, (double) current_pos.y);
 
     astar.AStarSearch(*(graph), current_pos, current_astar_goal, came_from, cost_so_far);                             // A* method execution
-    // std::cout << "Reconstructing path" << std::endl;
+    std::cout << "Reconstructing path" << std::endl;
     std::vector<Pos> local_path_at_local_frame = astar.reconstruct_path(current_pos, current_astar_goal, came_from);  // Util for easier path use
     result_traj_.cost_ = 12;
-    // std::cout << "Finished path reconstruction" << std::endl;
+    std::cout << "Finished path reconstruction" << std::endl;
 
     // ROS_INFO("Local path at local frame:");
     // for (auto pos = local_path_at_local_frame.begin(); pos != local_path_at_local_frame.end(); pos++)
@@ -547,7 +568,7 @@ namespace rra_local_planner {
                                 ) - tf::getYaw(global_pose.getRotation());
 
     tf::Vector3 start(0, 0, 0);  
-    if (fabs(ang) <= STEERING_ANGLE*PI/180 )
+    if (fabs(ang) <= STEERING_ANGLE*M_PI/180 )
     {
           start = tf::Vector3(
                       linear_vel(
@@ -599,35 +620,40 @@ namespace rra_local_planner {
   // As outlined in Section 4.1.1, a simple heading proportional
   // controller based on Bertaska2015Experimental and Go to Goal ROS move_base tutorial
   double RRAPlanner::linear_vel(double goal_x, double goal_y, double self_x, double self_y, double constt){
-    // return constt * euclidian_distance(goal_x, goal_y, self_x, self_y);
+    return constt * euclidian_distance(goal_x, goal_y, self_x, self_y);
 
-    double err = euclidian_distance(goal_x, goal_y, self_x, self_y);
-    double P = PID_Kp_LINEAR * err;
-    pid_I_linear_ += PID_Ki_LINEAR * err;
+    // double err = euclidian_distance(goal_x, goal_y, self_x, self_y);
+    // double P = PID_Kp_LINEAR * err;
+    // pid_I_linear_ += PID_Ki_LINEAR * err;
 
-    return P + pid_I_linear_;
+    // return P + pid_I_linear_;
 
   }
 
   double RRAPlanner::angular_vel(double goal_x, double goal_y, double self_x, double self_y, double self_th, double constt){
-    // return constt * (steering_angle(goal_x, goal_y, self_x, self_y) - self_th);
+    return constt * (steering_angle(goal_x, goal_y, self_x, self_y) - self_th);
 
-    double err = steering_angle(goal_x, goal_y, self_x, self_y) - self_th;
-    double P = PID_Kp_ANGULAR * err;
-    pid_I_angular_ += PID_Ki_ANGULAR * err;
+    // double err = steering_angle(goal_x, goal_y, self_x, self_y) - self_th;
+    // double P = PID_Kp_ANGULAR * err;
+    // pid_I_angular_ += PID_Ki_ANGULAR * err;
 
-    return P + pid_I_angular_;
+    // return P + pid_I_angular_;
   }
 
   double steering_angle(double goal_x, double goal_y, double self_x, double self_y){
 
     
     double angle = atan2( goal_y - self_y, goal_x - self_x);
-  
-    if (angle >= PI)
-    {
-      angle = angle - 2 * PI;
+
+    angle = angle == M_PI ? -M_PI : angle;                                              // angle inside [-PI, PI)
+    if ( (angle >= M_PI - (5 / (180/M_PI)) ) || (angle <= -M_PI + (5 / (180/M_PI))) ){  // if between [175, -175]
+      angle = -M_PI + (5 / (180/M_PI));
     }
+
+    // if (angle >= M_PI)
+    // {
+    //   angle = angle - 2 * M_PI;
+    // }
 
     // ROS_INFO("Wanted pos: (%f, %f)\nCurrent pos: (%f, %f)\nSteering Angle: %f", goal_x, goal_y, self_x, self_y, angle);
 
@@ -681,7 +707,7 @@ namespace rra_local_planner {
     geometry_msgs::Point pos  ;
 
     //// identify ori
-    // double otherVessel_orientation = (180.0 / PI) * tf::getYaw(other_vessel_pose_.orientation);
+    // double otherVessel_orientation = (180.0 / M_PI) * tf::getYaw(other_vessel_pose_.orientation);
 
     // ROS_INFO("Other Vessel ori: %f", otherVessel_orientation);
     
@@ -1096,7 +1122,7 @@ namespace rra_local_planner {
   
   }
 
-  colregs_encounter_type RRAPlanner::identifyCOLREGSEncounterType(tf::Stamped<tf::Pose>& global_pose)
+colregs_encounter_type RRAPlanner::identifyCOLREGSEncounterType(tf::Stamped<tf::Pose>& global_pose)
   {
 
     // double tCPA, dCPA;
@@ -1139,42 +1165,28 @@ namespace rra_local_planner {
     // ROS_INFO("tCPA: %f", tCPA);
     // ROS_INFO("dCPA: %f", dCPA);
 
-    double other_ori = tf::getYaw(other_vessel_pose_.orientation);  // rad
-    other_ori *= (180.0 / PI);                                      // degree
-    other_ori = other_ori < 0 ? other_ori + 360 : other_ori;        // positive degree
-    other_ori /= (180.0 / PI);                                      // positive rad
+    double steering_ang   = atan2(global_pose.getOrigin().getY() - other_vessel_pose_.position.y, global_pose.getOrigin().getX() - other_vessel_pose_.position.x);
+    steering_ang = steering_ang == M_PI ? -M_PI : steering_ang;                       // inside [-PI, PI)
+    steering_ang = steering_ang >= M_PI ? steering_ang - 2*M_PI : steering_ang;       // inside [-PI, PI)
+    steering_ang = steering_ang  < -M_PI ? steering_ang + 2*M_PI : steering_ang;      // inside [-PI, PI)
 
-    double bearing_angle = atan2( global_pose.getOrigin().getY() - other_vessel_pose_.position.y,
-                                  global_pose.getOrigin().getX() - other_vessel_pose_.position.x) -
-                                  other_ori;
+    double other_ori      = tf::getYaw(other_vessel_pose_.orientation);               // other vessel heading (rad)
+    other_ori = other_ori == M_PI ? -M_PI : other_ori;                                // other vessel heading inside [-PI, PI)
+    other_ori = other_ori >= M_PI ? other_ori - 2*M_PI : other_ori;                   // other vessel heading inside [-PI, PI)
+    other_ori = other_ori  < -M_PI ? other_ori + 2*M_PI : other_ori;                  // other vessel heading inside [-PI, PI)
 
-    // double bearing_angle =  atan2(other_vessel_pose_.position.y - global_pose.getOrigin().getY(),
-    //                              other_vessel_pose_.position.x - global_pose.getOrigin().getX()) 
-    //                         - tf::getYaw(global_pose.getRotation());
+    double bearing_angle  = steering_ang - other_ori;                                 // relative bearing (rad)
+    bearing_angle = bearing_angle == M_PI ? -M_PI : bearing_angle;                    // relative bearing inside [-PI, PI)
+    bearing_angle = bearing_angle >= M_PI ? bearing_angle - 2*M_PI : bearing_angle;   // relative bearing inside [-PI, PI)
+    bearing_angle = bearing_angle  < -M_PI ? bearing_angle + 2*M_PI : bearing_angle;  // relative bearing inside [-PI, PI)
 
-    bearing_angle = (180.0 / PI) * bearing_angle; // rad to degree
+    ROS_INFO("Steering angle:   %f", (180.0 / M_PI) * steering_ang);
+    ROS_INFO("Other vessel ori: %f", (180.0 / M_PI) * other_ori);
+    ROS_INFO("Bearing angle:    %f", (180.0 / M_PI) * bearing_angle);
 
-    if ( fabs(bearing_angle) > 360 )                    // angles bigger than 360 adjustment
-    {
-      int fact = (int)abs(bearing_angle / 360);
-      if (bearing_angle < 0)
-      {
-        bearing_angle = bearing_angle - fact * (-360);
-      }
-      else
-      {
-        bearing_angle = bearing_angle - fact * (360);
-      }
-    }
+    bearing_angle *= (180.0 / M_PI);                                                  // rad to degree
 
-    if (bearing_angle < -180)
-    {
-      bearing_angle += 360;
-    }
-
-    ROS_INFO("Steering angle:   %f", (180.0 / PI) * atan2( global_pose.getOrigin().getY() - other_vessel_pose_.position.y, global_pose.getOrigin().getX() - other_vessel_pose_.position.x));
-    ROS_INFO("Other vessel ori: %f", (180.0 / PI) * other_ori);
-    ROS_INFO("Bearing angle:    %f", bearing_angle);
+    // COLREGS decision
 
     if ( (bearing_angle >= -15.0) && (bearing_angle < 15.0) )
     {
@@ -1191,8 +1203,8 @@ namespace rra_local_planner {
     } else if ( ((bearing_angle >= 112.5) && (bearing_angle < 180.0)) ||  ((bearing_angle >= - 180.0) && (bearing_angle < - 112.5)) )
     {
 
-      double usv_ori    = (180.0 / PI)*tf::getYaw(global_pose.getRotation());
-      double other_ori  = (180.0 / PI)*tf::getYaw(other_vessel_pose_.orientation);
+      double usv_ori    = (180.0 / M_PI)*tf::getYaw(global_pose.getRotation());
+      double other_ori  = (180.0 / M_PI)*tf::getYaw(other_vessel_pose_.orientation);
 
       usv_ori   = usv_ori   < 0 ? usv_ori   + 360 : usv_ori;
       other_ori = other_ori < 0 ? other_ori + 360 : other_ori;
@@ -1216,3 +1228,132 @@ namespace rra_local_planner {
   }
 
 };
+
+//   colregs_encounter_type RRAPlanner::identifyCOLREGSEncounterType(tf::Stamped<tf::Pose>& global_pose)
+//   {
+
+//     // double tCPA, dCPA;
+//     // double x, y, vx, vy;
+//     // double PAx, PAy, PBx, PBy, VAx, VAy, VBx, VBy;
+
+//     // PAx = global_pose.getOrigin().getX();
+//     // PAy = global_pose.getOrigin().getY();
+//     // PBx = other_vessel_pose_.position.x;
+//     // PBy = other_vessel_pose_.position.y;
+//     // VAx = global_vel_.position.x;
+//     // VAy = global_vel_.position.y;
+//     // VBx = other_vessel_vel_.linear.x;
+//     // VBy = other_vessel_vel_.linear.y;
+
+//     // x   = PAx - PBx;
+//     // y   = PAy - PBy;
+//     // vx  = VAx - VBx;
+//     // vy  = VAy - VBy;
+
+//     // std::vector<double> a{x, y};
+//     // std::vector<double> b{vx, vy};
+//     // // double r1 = std::inner_product(a.begin(), a.end(), b.begin(), 0);
+//     // double r1 = 0;
+//     // r1 = r1 + a[0] * b[0] + a[1] * b[1];
+//     // double magnitude = sqrt((vx * vx) + (vy * vy));
+
+//     // tCPA = fabs(r1) / magnitude;
+
+//     // x = PAx + VAx * tCPA;
+//     // y = PAy + VAy * tCPA;
+
+//     // x -= PBx + VBx * tCPA;
+//     // y -= PBy + VBy * tCPA;
+
+//     // dCPA = sqrt((x * x) + (y * y));
+
+//     // ROS_INFO("r1: %f", r1);
+//     // ROS_INFO("magnitude: %f", magnitude);
+//     // ROS_INFO("tCPA: %f", tCPA);
+//     // ROS_INFO("dCPA: %f", dCPA);
+
+//     double other_ori = tf::getYaw(other_vessel_pose_.orientation);  // rad
+//     other_ori *= (180.0 / M_PI);                                      // degree
+//     other_ori = other_ori < 0 ? other_ori + 360 : other_ori;        // positive degree
+//     other_ori /= (180.0 / M_PI);                                      // positive rad
+
+//     double bearing_angle = atan2( global_pose.getOrigin().getY() - other_vessel_pose_.position.y,
+//                                   global_pose.getOrigin().getX() - other_vessel_pose_.position.x) -
+//                                   other_ori;
+
+//     // double bearing_angle =  atan2(other_vessel_pose_.position.y - global_pose.getOrigin().getY(),
+//     //                              other_vessel_pose_.position.x - global_pose.getOrigin().getX()) 
+//     //                         - tf::getYaw(global_pose.getRotation());
+
+//     bearing_angle = (180.0 / M_PI) * bearing_angle; // rad to degree
+
+//     if ( fabs(bearing_angle) > 360 )                    // angles bigger than 360 adjustment
+//     {
+//       int fact = (int)abs(bearing_angle / 360);
+//       if (bearing_angle < 0)
+//       {
+//         bearing_angle = bearing_angle - fact * (-360);
+//       }
+//       else
+//       {
+//         bearing_angle = bearing_angle - fact * (360);
+//       }
+//     }
+
+//     if (bearing_angle < -180)
+//     {
+//       bearing_angle += 360;
+//     }
+
+//     ROS_INFO("Steering angle:   %f", (180.0 / M_PI) * atan2( global_pose.getOrigin().getY() - other_vessel_pose_.position.y, global_pose.getOrigin().getX() - other_vessel_pose_.position.x));
+//     ROS_INFO("Other vessel ori: %f", (180.0 / M_PI) * other_ori);
+//     ROS_INFO("Bearing angle:    %f", bearing_angle);
+
+
+//     double steering_ang_2   = atan2(global_pose.getOrigin().getY() - other_vessel_pose_.position.y, global_pose.getOrigin().getX() - other_vessel_pose_.position.x);  //rad
+//     double other_ori_2      = tf::getYaw(other_vessel_pose_.orientation); // rad
+//     double bearing_angle_2  = steering_ang_2 - other_ori_2; // rad
+//     ROS_INFO("Steering angle:   %f", (180.0 / M_PI) * steering_ang_2);
+//     ROS_INFO("Other vessel ori: %f", (180.0 / M_PI) * other_ori_2);
+//     ROS_INFO("Bearing angle:    %f", (180.0 / M_PI) * bearing_angle_2);
+
+//     if ( (bearing_angle >= -15.0) && (bearing_angle < 15.0) )
+//     {
+
+//       ROS_INFO("Head On");
+//       return HeadOn;
+
+//     }else if ( (bearing_angle >= 15.0) && (bearing_angle < 112.5) )
+//     {
+
+//       ROS_INFO("Crossing from RIGHT");
+//       return Right;
+
+//     } else if ( ((bearing_angle >= 112.5) && (bearing_angle < 180.0)) ||  ((bearing_angle >= - 180.0) && (bearing_angle < - 112.5)) )
+//     {
+
+//       double usv_ori    = (180.0 / M_PI)*tf::getYaw(global_pose.getRotation());
+//       double other_ori  = (180.0 / M_PI)*tf::getYaw(other_vessel_pose_.orientation);
+
+//       usv_ori   = usv_ori   < 0 ? usv_ori   + 360 : usv_ori;
+//       other_ori = other_ori < 0 ? other_ori + 360 : other_ori;
+
+//       if ( fabs(usv_ori - other_ori) > 90 )
+//       {
+//         return null;
+//       }
+    
+//       ROS_INFO("Overtaking");
+//       return Overtaking;
+//     }else if ( (bearing_angle >= -112.5) && (bearing_angle < -15) )
+//     {
+
+//       ROS_INFO("Crossing from LEFT");
+//       return Left;
+
+//     }
+
+//     return null;
+//   }
+
+// };

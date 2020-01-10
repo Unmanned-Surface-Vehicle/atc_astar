@@ -66,12 +66,12 @@
 #include "../../include/AStar/Astar.h"
 // #include "../AStar/Astar.h"
 
-#define PI 3.141592653589793238463
+// #define PI 3.141592653589793238463
 // #define Kp 0.1
 // #define Ki 0
 
-#define PID_Kp_LINEAR                   0.1   // Proportional controller gain
-#define PID_Kp_ANGULAR                  0.2   // Proportional controller gain
+#define PID_Kp_LINEAR                   0.075   // Proportional controller gain
+#define PID_Kp_ANGULAR                  0.75   // Proportional controller gain
 
 #define PID_Ki_LINEAR                   0.0   // Proportional controller gain
 #define PID_Ki_ANGULAR                  0.0   // Proportional controller gain
