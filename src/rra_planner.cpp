@@ -524,9 +524,9 @@ namespace rra_local_planner {
     // }
     // std::cout << std::endl;
 
-    std::cout << "Drawing cenario" << std::endl;
-    draw_grid(*graph, 2, nullptr, nullptr, &local_path_at_local_frame);
-    std::cout << "Finished drawing" << std::endl;
+    // std::cout << "Drawing cenario" << std::endl;
+    // draw_grid(*graph, 2, nullptr, nullptr, &local_path_at_local_frame);
+    // std::cout << "Finished drawing" << std::endl;
 
     // std::cout << "Converting local plan from local coordinations to global cordenates" << std::endl;
     for (auto pos = local_path_at_local_frame.begin(); pos != local_path_at_local_frame.end(); pos++)
@@ -611,6 +611,329 @@ namespace rra_local_planner {
 
     return result_traj_;
   }
+
+  // /*
+  //  */
+  // base_local_planner::Trajectory RRAPlanner::findBestPath(
+  //     tf::Stamped<tf::Pose> global_pose,
+  //     tf::Stamped<tf::Pose> global_vel,
+  //     tf::Stamped<tf::Pose>& drive_velocities) 
+  // {
+
+  //   //////////////////////////////////////////////////////////////////////////
+  //   // Variables Declaration
+  //   //////////////////////////////////////////////////////////////////////////
+  //   costmap_2d::Costmap2D                   *local_costmap_2d             = planner_util_->getCostmap();        // Auxiliary for local costmap access
+  //   GridWithWeights*                        graph;                                                              // A* main strucutre for goal search
+  //   int                                     mx, my;                                                             // General auxiliaries variables for world to map coordinates tranform
+  //   double global_pose_x                                                  = global_pose.getOrigin().getX();
+  //   double global_pose_y                                                  = global_pose.getOrigin().getY();
+  //   double global_pose_rotation                                           = tf::getYaw(global_pose.getRotation());
+  //   geometry_msgs::Point                    astar_local_goal_global_frame = global_plan_.back().pose.position;  // Local goal
+  //   Pos                                     current_astar_goal;                                                 // Current A* goal
+  //   Pos                                     current_pos;
+  //   std::vector<geometry_msgs::PoseStamped>::iterator g_itr;
+  //   AStar::AStar                            astar;                                                              // A* handler
+  //   std::unordered_map<Pos, Pos>            came_from;                                                          // A* Path
+  //   std::unordered_map<Pos, double>         cost_so_far;                                                        // A*'s exploration phase util
+  //   std::vector<Pos>                        local_path_at_local_frame;
+  //   std::vector<geometry_msgs::Point>       local_path_at_global_frame;
+
+  //   bool graph_exist = false;
+
+  //   //For timing uncomment
+  //   struct timeval starttt, end;
+  //   double start_t, end_t, t_diff;
+  //   gettimeofday(&starttt, NULL);
+
+  //   //////////////////////////////////////////////////////////////////////////
+  //   // Util Initialization
+  //   //////////////////////////////////////////////////////////////////////////
+  //   // // Converts Costmap to graph to be used in the A* method
+  //   // graph = costmapToGrid( local_costmap_2d );
+
+  //   //For timing uncomment
+  //   gettimeofday(&end, NULL);
+  //   start_t = starttt.tv_sec + double(starttt.tv_usec) / 1e6;
+  //   end_t = end.tv_sec + double(end.tv_usec) / 1e6;
+  //   t_diff = end_t - start_t;
+  //   ROS_INFO("Cycle time costmapToGrid: %.9f", t_diff);
+
+  //   gettimeofday(&starttt, NULL);
+
+  //   //////////////////////////////////////////////////////////////////////////
+  //   // Is there any vessel?
+  //   //////////////////////////////////////////////////////////////////////////
+  //   if (isThereAnyOtherVesselNear())
+  //   {
+  //     // is there risk?
+  //     colregs_encounter_type  risk        = identifyCOLREGSEncounterType(global_pose);
+  //     if (risk != null)
+  //     {
+
+  //       // create Artificial Terrain Cost for COLREGS-COMPLIANCE
+  //       geometry_msgs::Point diff2_pos;
+  //       diff2_pos = other_vessel_pose_.position;
+  //       other_vessel_pose_.position.x = -1;
+  //       other_vessel_pose_.position.y = -1;
+  //       unsigned short int sector = 0;
+  //       double ori = (180.0 / M_PI) * global_pose_rotation;
+  //       if (ori >= -45 && ori < 45)
+  //       {
+  //         sector = 1;
+  //       }
+  //       else if (ori >= 45 && ori < 135)
+  //       {
+  //         sector = 2;
+  //       }
+  //       else if ((ori >= 135 && ori < 180) || (ori >= -180 && ori < -135))
+  //       {
+  //         sector = 3;
+  //       }
+  //       else if (ori >= -135 && ori < -45)
+  //       {
+  //         sector = 4;
+  //       }
+
+  //       std::vector<geometry_msgs::Point> artificial_terrain = createArtificialTerrainCost(diff2_pos, risk, sector);
+
+  //       // Converts Costmap to graph to be used in the A* method
+  //       graph = costmapToGrid( local_costmap_2d );
+  //       graph_exist = true;
+
+  //       for (auto pos = artificial_terrain.begin(); pos != artificial_terrain.end(); pos++)
+  //       {
+
+  //         local_costmap_2d->worldToMapEnforceBounds(  pos->x, 
+  //                                                     pos->y, 
+  //                                                     mx, 
+  //                                                     my);
+
+  //         // ROS_INFO("Before set (%d, %d): %d", mx, my, local_costmap_2d->getCost(mx, my));
+  //         // local_costmap_2d->setCost(mx, my, (unsigned char)255);
+  //         // ROS_INFO("After set (%d, %d): %d", mx, my, local_costmap_2d->getCost(mx, my));
+
+  //         if (euclidian_distance(diff2_pos.x, diff2_pos.y, global_pose_x, global_pose_y) > CRITICAL_DISTANCE)
+  //         {
+
+  //           graph->walls.insert(Pos{mx, my, 0, double(COSTMAP_OCCUPANCE_ACCEPTANCE) +1.0});
+
+  //         }
+          
+  //       }
+
+  //     }else {
+  //       ROS_INFO(" NO RISK");
+  //     };
+  //   } else {
+  //     ROS_INFO("No other vessel near");
+  //   };
+
+  //   //For timing uncomment
+  //   gettimeofday(&end, NULL);
+  //   start_t = starttt.tv_sec + double(starttt.tv_usec) / 1e6;
+  //   end_t = end.tv_sec + double(end.tv_usec) / 1e6;
+  //   t_diff = end_t - start_t;
+  //   ROS_INFO("Cycle time isThereAnyOtherVesselNear: %.9f", t_diff);
+
+  //   gettimeofday(&starttt, NULL);
+
+  //   //////////////////////////////////////////////////////////////////////////
+  //   // A* Preprocessing
+  //   //////////////////////////////////////////////////////////////////////////
+    
+  //   //-----------------------------* Evaluate if goal and current position are valid for planning
+  //   // Gets closer global plan position in local frame reference
+  //   local_costmap_2d->worldToMapEnforceBounds(  astar_local_goal_global_frame.x, 
+  //                                               astar_local_goal_global_frame.y, 
+  //                                               current_astar_goal.x, 
+  //                                               current_astar_goal.y);
+
+  //   // Gets robot current position in local frame reference
+  //   local_costmap_2d->worldToMapEnforceBounds(  global_pose_x, 
+  //                                               global_pose_y, 
+  //                                               current_pos.x, 
+  //                                               current_pos.y);
+
+  //   // ROS_INFO("A* goal:    (%d, %d)", current_astar_goal.x, current_astar_goal.y);
+  //   // searches for farest valid A* goal
+  //   g_itr = global_plan_.end();
+    
+  //   do
+  //   {
+  //     astar_local_goal_global_frame = (*g_itr).pose.position;
+
+  //     // Gets closer global plan position in local frame reference
+  //     local_costmap_2d->worldToMapEnforceBounds(  astar_local_goal_global_frame.x, 
+  //                                                 astar_local_goal_global_frame.y, 
+  //                                                 current_astar_goal.x, 
+  //                                                 current_astar_goal.y);
+  //     g_itr--;
+  //   } while (!isAValidPlanningPosition(current_astar_goal) && (g_itr != global_plan_.begin()));
+
+  //   if ( !isAValidPlanningPosition( current_astar_goal ) || !isAValidPlanningPosition( current_pos ) )  // * if A* goal or current pos are NOT valid (out of local costmap OR in occupied cell)
+  //   {
+
+  //     // ROS_INFO("A* goal or current pos INVALID");
+  //     // ROS_INFO("Last A* goal: (%d, %d)", last_astar_goal_.x, last_astar_goal_.y);
+
+  //     if ( last_astar_goal_.x != -1 && last_astar_goal_.y != -1 ) // * if A* goal or current pos ARE NOT valid AND last goal is valid then use last cmd_vel
+  //     {
+  //       // ROS_INFO("Last A* goal valid");
+
+  //       drive_velocities = last_drive_velocities_;
+  //       result_traj_.cost_ = 12;
+
+  //     }else                                       // * if A* goal os current pos ARE NOT valid AND last goal IS NOT valid then do not generate any velocity
+  //     {
+  //       // ROS_INFO("Last A* goal INVALID");
+
+  //       drive_velocities.setIdentity();
+  //       result_traj_.cost_ = -7;
+
+  //     }
+      
+  //     return result_traj_;
+
+  //   }else{
+  //     ROS_INFO("Valid Goal");
+  //   }
+
+  //   //For timing uncomment
+  //   gettimeofday(&end, NULL);
+  //   start_t = starttt.tv_sec + double(starttt.tv_usec) / 1e6;
+  //   end_t = end.tv_sec + double(end.tv_usec) / 1e6;
+  //   t_diff = end_t - start_t;
+  //   ROS_INFO("Cycle time A* Preprocessing: %.9f", t_diff);
+
+  //   gettimeofday(&starttt, NULL);
+
+  //   //////////////////////////////////////////////////////////////////////////
+  //   // A* Search
+  //   //////////////////////////////////////////////////////////////////////////
+  //   //-----------------------------* A* search
+    
+  //   // current_pos.x = mx;
+  //   // current_pos.y = my;
+  //   // ROS_INFO("Robot pos:  (%f, %f)", (double) current_pos.x, (double) current_pos.y);
+
+  //   if (!graph_exist)
+  //   {
+  //     graph = costmapToGrid( local_costmap_2d );
+  //     graph_exist = true;
+  //   }
+    
+
+  //   astar.AStarSearch(*(graph), current_pos, current_astar_goal, came_from, cost_so_far);                             // A* method execution
+  //   std::cout << "Reconstructing path" << std::endl;
+  //   local_path_at_local_frame = astar.reconstruct_path(current_pos, current_astar_goal, came_from);  // Util for easier path use
+  //   result_traj_.cost_ = 12;
+  //   std::cout << "Finished path reconstruction" << std::endl;
+
+  //   // std::cout << "Drawing cenario" << std::endl;
+  //   // draw_grid(*graph, 2, nullptr, nullptr, &local_path_at_local_frame);
+  //   // std::cout << "Finished drawing" << std::endl;
+
+  //   // std::cout << "Converting local plan from local coordinations to global cordenates" << std::endl;
+  //   for (auto pos = local_path_at_local_frame.begin(); pos != local_path_at_local_frame.end(); pos++)
+  //   {
+
+  //     geometry_msgs::Point global_pos;
+  //     // // (Xg*resolution + Xcostmap, Yg*resolution + Ycostmap)
+  //     local_costmap_2d->mapToWorld( pos->x, 
+  //                                   pos->y, 
+  //                                   global_pos.x, 
+  //                                   global_pos.y);
+  //     local_path_at_global_frame.push_back(global_pos);
+
+  //   }
+  //   // std::cout << "Finished conversion" << std::endl;
+
+  //   // Populating result_traj_ for debugging propose
+  //   result_traj_.resetPoints();
+  //   for (auto p = local_path_at_global_frame.begin(); p != local_path_at_global_frame.end(); p++)
+  //   {
+  //     result_traj_.addPoint(p->x, p->y, steering_angle(p->x, p->y, global_pose_x, global_pose_y));
+  //   }
+
+  //   //For timing uncomment
+  //   gettimeofday(&end, NULL);
+  //   start_t = starttt.tv_sec + double(starttt.tv_usec) / 1e6;
+  //   end_t = end.tv_sec + double(end.tv_usec) / 1e6;
+  //   t_diff = end_t - start_t;
+  //   ROS_INFO("Cycle time A*: %.9f", t_diff);
+
+  //   gettimeofday(&starttt, NULL);
+
+  //   //////////////////////////////////////////////////////////////////////////
+  //   // Velocity command Generation
+  //   //////////////////////////////////////////////////////////////////////////
+
+  //   Eigen::Vector3f pos(global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), global_pose_rotation);
+  //   // debrief stateful scoring functions
+  //   oscillation_costs_.updateOscillationFlags(pos, &result_traj_, planner_util_->getCurrentLimits().min_trans_vel);
+
+  //   // Creates cmd_vel populating drive_velocities with translation and rotation matrixes
+  //   unsigned short int local_path_index_to_follow = 0;
+  //   local_path_index_to_follow = local_path_at_global_frame.size() >= POSE_TO_FOLLOW ? POSE_TO_FOLLOW -1 : local_path_at_global_frame.size() -1;
+
+  //   double ang = steering_angle(  local_path_at_global_frame[local_path_index_to_follow].x, 
+  //                                 local_path_at_global_frame[local_path_index_to_follow].y, 
+  //                                 global_pose.getOrigin().getX(), 
+  //                                 global_pose.getOrigin().getY() 
+  //                               ) - global_pose_rotation;
+
+  //   tf::Vector3 start(0, 0, 0);  
+  //   if (fabs(ang) <= STEERING_ANGLE*M_PI/180 )
+  //   {
+  //         start = tf::Vector3(
+  //                     linear_vel(
+  //                                 local_path_at_global_frame[local_path_index_to_follow].x, 
+  //                                 local_path_at_global_frame[local_path_index_to_follow].y, 
+  //                                 global_pose.getOrigin().getX(), 
+  //                                 global_pose.getOrigin().getY(), 
+  //                                 PID_Kp_LINEAR
+  //                               ), 
+  //                     0, 
+  //                     0);
+
+  //         drive_velocities.setOrigin(start);
+      
+  //   }else if ( last_astar_goal_.x != -1 && last_astar_goal_.y != -1 )
+  //   {
+
+  //     drive_velocities.setOrigin(last_drive_velocities_.getOrigin());
+
+  //   }else{ drive_velocities.setOrigin(start); }
+    
+  //   // drive_velocities.setOrigin(start);    
+  //   // drive_velocities.setOrigin(last_drive_velocities_.getOrigin());        
+
+  //   tf::Matrix3x3 matrix;
+  //   matrix.setRotation(
+  //                       tf::createQuaternionFromYaw(
+  //                                                   angular_vel(local_path_at_global_frame[local_path_index_to_follow].x, 
+  //                                                   local_path_at_global_frame[local_path_index_to_follow].y, global_pose.getOrigin().getX(), 
+  //                                                   global_pose.getOrigin().getY(), 
+  //                                                   tf::getYaw(global_pose.getRotation()), 
+  //                                                   PID_Kp_ANGULAR)
+  //                                                   )
+  //                     );
+  //   drive_velocities.setBasis(matrix);
+
+  //   last_astar_goal_.x = astar_local_goal_global_frame.x;
+  //   last_astar_goal_.y = astar_local_goal_global_frame.y;
+  //   last_drive_velocities_ = drive_velocities;
+
+  //   //For timing uncomment
+  //   gettimeofday(&end, NULL);
+  //   start_t = starttt.tv_sec + double(starttt.tv_usec) / 1e6;
+  //   end_t = end.tv_sec + double(end.tv_usec) / 1e6;
+  //   t_diff = end_t - start_t;
+  //   ROS_INFO("Cycle time cmd_vel generation: %.9f", t_diff);
+
+  //   return result_traj_;
+  // }
 
   double euclidian_distance(double goal_x, double goal_y, double self_x, double self_y){
     return sqrt(  pow((goal_x - self_x), 2) + 
