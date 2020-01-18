@@ -57,6 +57,8 @@
 
 #include <rra_local_planner/rra_planner.h>
 
+#include <std_msgs/Float64.h>
+
 namespace rra_local_planner {
   /**
    * @class RRAPlannerROS
@@ -114,11 +116,11 @@ namespace rra_local_planner {
        */
       bool isGoalReached();
 
-
-
       bool isInitialized() {
         return initialized_;
       }
+
+      void publishComputationTime(double comp_time);
 
     private:
       /**
@@ -134,6 +136,9 @@ namespace rra_local_planner {
 
       // for visualisation, publishers of global and local plan
       ros::Publisher g_plan_pub_, l_plan_pub_;
+
+      // for performance evaluation
+      ros::Publisher computation_time_pub_;
 
       base_local_planner::LocalPlannerUtil planner_util_;
 

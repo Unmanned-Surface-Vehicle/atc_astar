@@ -98,8 +98,9 @@ namespace rra_local_planner {
     if (! isInitialized()) {
 
       ros::NodeHandle private_nh("~/" + name);
-      g_plan_pub_ = private_nh.advertise<nav_msgs::Path>("global_plan", 1);
-      l_plan_pub_ = private_nh.advertise<nav_msgs::Path>("local_plan", 1);
+      g_plan_pub_             = private_nh.advertise<nav_msgs::Path>("global_plan", 1);
+      l_plan_pub_             = private_nh.advertise<nav_msgs::Path>("local_plan", 1);
+      computation_time_pub_ = private_nh.advertise<std_msgs::Float64>("computation_time", 1);
       tf_ = tf;
       costmap_ros_ = costmap_ros;
       costmap_ros_->getRobotPose(current_pose_);
@@ -205,6 +206,7 @@ namespace rra_local_planner {
     start_t = start.tv_sec + double(start.tv_usec) / 1e6;
     end_t = end.tv_sec + double(end.tv_usec) / 1e6;
     t_diff = end_t - start_t;
+    publishComputationTime(t_diff);
     ROS_INFO("Cycle time: %.9f", t_diff);
 
     //pass along drive commands
@@ -362,6 +364,14 @@ namespace rra_local_planner {
       }
       return isOk;
     }
+  }
+
+  void RRAPlannerROS::publishComputationTime(double comp_time){
+
+    std_msgs::Float64 msg;
+    msg.data = comp_time;
+    computation_time_pub_.publish(msg);
+
   }
 
 
