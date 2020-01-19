@@ -372,14 +372,14 @@ namespace rra_local_planner {
     std::vector<geometry_msgs::PoseStamped>::iterator g_itr;
     g_itr = global_plan_.end();
 
-    if (!isAValidPlanningPosition(current_astar_goal))
-    {
-      ROS_INFO("Invalid current A* goal, before while");
-    }
-    if (g_itr != global_plan_.begin())
-    {
-      ROS_INFO("g_itr != global_plan_.begin(), before while");
-    }
+    // if (!isAValidPlanningPosition(current_astar_goal))
+    // {
+    //   ROS_INFO("Invalid current A* goal, before while");
+    // }
+    // if (g_itr != global_plan_.begin())
+    // {
+    //   ROS_INFO("g_itr != global_plan_.begin(), before while");
+    // }
     
     while (!isAValidPlanningPosition(current_astar_goal) && (g_itr != global_plan_.begin()) )
     {
@@ -394,15 +394,15 @@ namespace rra_local_planner {
       g_itr--;
     }
 
-    if (!isAValidPlanningPosition(current_astar_goal))
-    {
-      ROS_INFO("Invalid current A* goal, after while");
-    }
+    // if (!isAValidPlanningPosition(current_astar_goal))
+    // {
+    //   ROS_INFO("Invalid current A* goal, after while");
+    // }
 
-    if (!isAValidPlanningPosition(current_pos))
-    {
-      ROS_INFO("Invalid current pos, after while");
-    }
+    // if (!isAValidPlanningPosition(current_pos))
+    // {
+    //   ROS_INFO("Invalid current pos, after while");
+    // }
 
     if ( !isAValidPlanningPosition( current_astar_goal ) || !isAValidPlanningPosition( current_pos ) )  // * if A* goal or current pos are NOT valid (out of local costmap OR in occupied cell)
     {
@@ -503,7 +503,7 @@ namespace rra_local_planner {
 
     }
 
-    ROS_INFO("A* goal: (%d, %d)", current_astar_goal.x, current_astar_goal.y);
+    // ROS_INFO("A* goal: (%d, %d)", current_astar_goal.x, current_astar_goal.y);
 
     //-----------------------------* A* search
 
@@ -512,10 +512,10 @@ namespace rra_local_planner {
     // ROS_INFO("Robot pos:  (%f, %f)", (double) current_pos.x, (double) current_pos.y);
 
     astar.AStarSearch(*(graph), current_pos, current_astar_goal, came_from, cost_so_far);                             // A* method execution
-    std::cout << "Reconstructing path" << std::endl;
+    // std::cout << "Reconstructing path" << std::endl;
     std::vector<Pos> local_path_at_local_frame = astar.reconstruct_path(current_pos, current_astar_goal, came_from);  // Util for easier path use
     result_traj_.cost_ = 12;
-    std::cout << "Finished path reconstruction" << std::endl;
+    // std::cout << "Finished path reconstruction" << std::endl;
 
     // ROS_INFO("Local path at local frame:");
     // for (auto pos = local_path_at_local_frame.begin(); pos != local_path_at_local_frame.end(); pos++)
@@ -524,9 +524,9 @@ namespace rra_local_planner {
     // }
     // std::cout << std::endl;
 
-    std::cout << "Drawing cenario" << std::endl;
-    draw_grid(*graph, 2, nullptr, nullptr, &local_path_at_local_frame);
-    std::cout << "Finished drawing" << std::endl;
+    // std::cout << "Drawing cenario" << std::endl;
+    // draw_grid(*graph, 2, nullptr, nullptr, &local_path_at_local_frame);
+    // std::cout << "Finished drawing" << std::endl;
 
     // std::cout << "Converting local plan from local coordinations to global cordenates" << std::endl;
     for (auto pos = local_path_at_local_frame.begin(); pos != local_path_at_local_frame.end(); pos++)
@@ -732,7 +732,7 @@ namespace rra_local_planner {
       switch (sector)
       {
       case 1:
-        ROS_INFO("HeadOn S1");
+        // ROS_INFO("HeadOn S1");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -756,7 +756,7 @@ namespace rra_local_planner {
         break;
       
       case 2:
-        ROS_INFO("HeadOn S2");
+        // ROS_INFO("HeadOn S2");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -780,7 +780,7 @@ namespace rra_local_planner {
         break;
       
       case 3:
-        ROS_INFO("HeadOn S3");
+        // ROS_INFO("HeadOn S3");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -804,7 +804,7 @@ namespace rra_local_planner {
         break;
       
       case 4:
-        ROS_INFO("HeadOn S4");
+        // ROS_INFO("HeadOn S4");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -828,7 +828,7 @@ namespace rra_local_planner {
         break;
       
       default:
-        ROS_INFO("HeadOn No Section");
+        // ROS_INFO("HeadOn No Section");
         break;
       }
       break;
@@ -837,23 +837,23 @@ namespace rra_local_planner {
       switch (sector)
       {
       case 1:
-        ROS_INFO("Left S1");
+        // ROS_INFO("Left S1");
         break;
       
       case 2:
-        ROS_INFO("Left S2");
+        // ROS_INFO("Left S2");
         break;
       
       case 3:
-        ROS_INFO("Left S3");
+        // ROS_INFO("Left S3");
         break;
       
       case 4:
-        ROS_INFO("Left S4");
+        // ROS_INFO("Left S4");
         break;
       
       default:
-        ROS_INFO("Left No Section");
+        // ROS_INFO("Left No Section");
         break;
       }
       break;
@@ -862,7 +862,7 @@ namespace rra_local_planner {
       switch (sector)
       {
       case 1:
-        ROS_INFO("Right S1");
+        // ROS_INFO("Right S1");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -886,7 +886,7 @@ namespace rra_local_planner {
         break;
       
       case 2:
-        ROS_INFO("Right S2");
+        // ROS_INFO("Right S2");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -910,7 +910,7 @@ namespace rra_local_planner {
         break;
       
       case 3:
-        ROS_INFO("Right S3");
+        // ROS_INFO("Right S3");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -934,7 +934,7 @@ namespace rra_local_planner {
         break;
       
       case 4:
-        ROS_INFO("Right S4");
+        // ROS_INFO("Right S4");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -958,7 +958,7 @@ namespace rra_local_planner {
         break;
       
       default:
-        ROS_INFO("Right No Section");
+        // ROS_INFO("Right No Section");
         break;
       }
       break;
@@ -967,7 +967,7 @@ namespace rra_local_planner {
       switch (sector)
       {
       case 1:
-        ROS_INFO("Overtaking S1");
+        // ROS_INFO("Overtaking S1");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -991,7 +991,7 @@ namespace rra_local_planner {
         break;
       
       case 2:
-        ROS_INFO("Overtaking S2");
+        // ROS_INFO("Overtaking S2");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -1015,7 +1015,7 @@ namespace rra_local_planner {
         break;
       
       case 3:
-        ROS_INFO("Overtaking S3");
+        // ROS_INFO("Overtaking S3");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -1039,7 +1039,7 @@ namespace rra_local_planner {
         break;
       
       case 4:
-        ROS_INFO("Overtaking S4");
+        // ROS_INFO("Overtaking S4");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -1063,13 +1063,13 @@ namespace rra_local_planner {
         break;
       
       default:
-        ROS_INFO("Overtaking No Section");
+        // ROS_INFO("Overtaking No Section");
         break;
       }
       break;
     
     default:
-      ROS_INFO("NO RISK");
+      // ROS_INFO("NO RISK");
       break;
     }
     
@@ -1180,9 +1180,9 @@ colregs_encounter_type RRAPlanner::identifyCOLREGSEncounterType(tf::Stamped<tf::
     bearing_angle = bearing_angle >= M_PI ? bearing_angle - 2*M_PI : bearing_angle;   // relative bearing inside [-PI, PI)
     bearing_angle = bearing_angle  < -M_PI ? bearing_angle + 2*M_PI : bearing_angle;  // relative bearing inside [-PI, PI)
 
-    ROS_INFO("Steering angle:   %f", (180.0 / M_PI) * steering_ang);
-    ROS_INFO("Other vessel ori: %f", (180.0 / M_PI) * other_ori);
-    ROS_INFO("Bearing angle:    %f", (180.0 / M_PI) * bearing_angle);
+    // ROS_INFO("Steering angle:   %f", (180.0 / M_PI) * steering_ang);
+    // ROS_INFO("Other vessel ori: %f", (180.0 / M_PI) * other_ori);
+    // ROS_INFO("Bearing angle:    %f", (180.0 / M_PI) * bearing_angle);
 
     bearing_angle *= (180.0 / M_PI);                                                  // rad to degree
 
@@ -1191,13 +1191,13 @@ colregs_encounter_type RRAPlanner::identifyCOLREGSEncounterType(tf::Stamped<tf::
     if ( (bearing_angle >= -15.0) && (bearing_angle < 15.0) )
     {
 
-      ROS_INFO("Head On");
+      // ROS_INFO("Head On");
       return HeadOn;
 
     }else if ( (bearing_angle >= 15.0) && (bearing_angle < 112.5) )
     {
 
-      ROS_INFO("Crossing from RIGHT");
+      // ROS_INFO("Crossing from RIGHT");
       return Right;
 
     } else if ( ((bearing_angle >= 112.5) && (bearing_angle < 180.0)) ||  ((bearing_angle >= - 180.0) && (bearing_angle < - 112.5)) )
@@ -1214,12 +1214,12 @@ colregs_encounter_type RRAPlanner::identifyCOLREGSEncounterType(tf::Stamped<tf::
         return null;
       }
     
-      ROS_INFO("Overtaking");
+      // ROS_INFO("Overtaking");
       return Overtaking;
     }else if ( (bearing_angle >= -112.5) && (bearing_angle < -15) )
     {
 
-      ROS_INFO("Crossing from LEFT");
+      // ROS_INFO("Crossing from LEFT");
       return Left;
 
     }

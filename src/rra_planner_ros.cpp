@@ -140,7 +140,7 @@ namespace rra_local_planner {
     //when we get a new plan, we also want to clear any latch we may have on goal tolerances
     latchedStopRotateController_.resetLatching();
 
-    ROS_INFO("Got new plan");
+    // ROS_INFO("Got new plan");
     return dp_->setPlan(orig_global_plan);
   }
 
@@ -207,7 +207,7 @@ namespace rra_local_planner {
     end_t = end.tv_sec + double(end.tv_usec) / 1e6;
     t_diff = end_t - start_t;
     publishComputationTime(t_diff);
-    ROS_INFO("Cycle time: %.9f", t_diff);
+    // ROS_INFO("Cycle time: %.9f", t_diff);
 
     //pass along drive commands
     cmd_vel.linear.x = drive_cmds.getOrigin().getX();
