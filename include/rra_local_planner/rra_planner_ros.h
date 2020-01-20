@@ -57,8 +57,6 @@
 
 #include <rra_local_planner/rra_planner.h>
 
-#include <std_msgs/Float64.h>
-
 namespace rra_local_planner {
   /**
    * @class RRAPlannerROS

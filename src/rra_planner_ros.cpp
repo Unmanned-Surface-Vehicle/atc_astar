@@ -100,7 +100,7 @@ namespace rra_local_planner {
       ros::NodeHandle private_nh("~/" + name);
       g_plan_pub_             = private_nh.advertise<nav_msgs::Path>("global_plan", 1);
       l_plan_pub_             = private_nh.advertise<nav_msgs::Path>("local_plan", 1);
-      computation_time_pub_ = private_nh.advertise<std_msgs::Float64>("computation_time", 1);
+      computation_time_pub_   = private_nh.advertise<std_msgs::Float64>("computation_time", 1);
       tf_ = tf;
       costmap_ros_ = costmap_ros;
       costmap_ros_->getRobotPose(current_pose_);

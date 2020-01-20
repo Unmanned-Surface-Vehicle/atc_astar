@@ -146,6 +146,8 @@ namespace rra_local_planner {
     pid_I_linear_   = 0;
     pid_I_angular_  = 0;
 
+    distance_pub_ = private_nh.advertise<std_msgs::Float64>("distance", 1);
+
     //Assuming this planner is being run within the navigation stack, we can
     //just do an upward search for the frequency at which its being run. This
     //also allows the frequency to be overwritten locally.
@@ -327,8 +329,11 @@ namespace rra_local_planner {
       tf::Stamped<tf::Pose>& drive_velocities) 
   {
 
-    global_vel_.position.x = global_vel.getOrigin().getX();
-    global_vel_.position.y = global_vel.getOrigin().getY();
+    // global_vel_.position.x = global_vel.getOrigin().getX();
+    // global_vel_.position.y = global_vel.getOrigin().getY();
+
+    global_pose_.position.x = global_pose.getOrigin().getX();
+    global_pose_.position.y = global_pose.getOrigin().getY();
 
     //make sure that our configuration doesn't change mid-run
     boost::mutex::scoped_lock l(configuration_mutex_);
@@ -492,7 +497,11 @@ namespace rra_local_planner {
         // local_costmap_2d->setCost(mx, my, (unsigned char)255);
         // ROS_INFO("After set (%d, %d): %d", mx, my, local_costmap_2d->getCost(mx, my));
 
-        if (euclidian_distance(diff2_pos.x, diff2_pos.y, global_pose.getOrigin().getX(), global_pose.getOrigin().getY()) > CRITICAL_DISTANCE)
+        // if ((euclidian_distance(diff2_pos.x, diff2_pos.y, global_pose.getOrigin().getX(), global_pose.getOrigin().getY()) > CRITICAL_DISTANCE) ||
+        //     (std::fabs(diff2_pos.x - global_pose.getOrigin().getX()) > CRITICAL_DISTANCE) ||
+        //     (std::fabs(diff2_pos.y - global_pose.getOrigin().getY()) > CRITICAL_DISTANCE))
+        // {
+        if (euclidian_distance(diff2_pos.x, diff2_pos.y, global_pose.getOrigin().getX(), global_pose.getOrigin().getY()) > CRITICAL_DISTANCE)         
         {
 
           graph->walls.insert(Pos{mx, my, 0, double(COSTMAP_OCCUPANCE_ACCEPTANCE) +1.0});
@@ -845,7 +854,7 @@ namespace rra_local_planner {
         break;
       
       case 3:
-        // ROS_INFO("Left S3");
+        ROS_INFO("Left S3");
         break;
       
       case 4:
@@ -1108,6 +1117,8 @@ namespace rra_local_planner {
     other_vessel_vel_   = usv_position_msg->twist.twist;
     // ROS_INFO("USV current position: X: %f, Y: %f", usv_current_pos.x, usv_current_pos.y);
     // ROS_INFO("C_x - N_x: %f - %f --- C_y - N_y: %f - %f", usv_current_pos.x, next_goal.x, usv_current_pos.y, next_goal.y);
+
+    publishDistance(euclidian_distance(other_vessel_pose_.position.x, other_vessel_pose_.position.y, global_pose_.position.x, global_pose_.position.y));
   }
 
   // probably could be improved calling only "wordToMap"
@@ -1209,10 +1220,10 @@ colregs_encounter_type RRAPlanner::identifyCOLREGSEncounterType(tf::Stamped<tf::
       usv_ori   = usv_ori   < 0 ? usv_ori   + 360 : usv_ori;
       other_ori = other_ori < 0 ? other_ori + 360 : other_ori;
 
-      if ( fabs(usv_ori - other_ori) > 90 )
-      {
-        return null;
-      }
+      // if ( fabs(usv_ori - other_ori) > 90 )
+      // {
+      //   return null;
+      // }
     
       // ROS_INFO("Overtaking");
       return Overtaking;
@@ -1225,6 +1236,14 @@ colregs_encounter_type RRAPlanner::identifyCOLREGSEncounterType(tf::Stamped<tf::
     }
 
     return null;
+  }
+
+  void RRAPlanner::publishDistance(double dist){
+
+    std_msgs::Float64 msg;
+    msg.data = dist;
+    distance_pub_.publish(msg);
+
   }
 
 };

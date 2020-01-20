@@ -63,6 +63,8 @@
 #include <nav_msgs/Path.h>
 #include <nav_msgs/Odometry.h>
 
+#include <std_msgs/Float64.h>
+
 #include "../../include/AStar/Astar.h"
 // #include "../AStar/Astar.h"
 
@@ -82,7 +84,7 @@
 // #define LOCAL_PATH_MIN_SIZE           00030
 #define ARTIFICIAL_TERRAIN_COST_LENGTH  80    // Local costmap units
 #define ARTIFICIAL_TERRAIN_COST_WIDTH   6     // Local costmap units
-#define CRITICAL_DISTANCE               2
+#define CRITICAL_DISTANCE               5
 #define STEERING_ANGLE                  90    // minimun steering_ange error before increase x linear velocity
 
 enum colregs_encounter_type
@@ -199,6 +201,8 @@ namespace rra_local_planner {
       double angular_vel(double goal_x, double goal_y, double self_x, double self_y, double self_th, double constt);
       double linear_vel(double goal_x, double goal_y, double self_x, double self_y, double constt);
 
+      void publishDistance(double dist);
+
     private:
 
       base_local_planner::LocalPlannerUtil *planner_util_;
@@ -243,9 +247,13 @@ namespace rra_local_planner {
       Pos                   last_astar_goal_;
       tf::Stamped<tf::Pose> last_drive_velocities_;
       geometry_msgs::Pose   global_vel_;
+      geometry_msgs::Pose   global_pose_;
 
       double pid_I_linear_;
       double pid_I_angular_;
+
+      // for performance evaluation
+      ros::Publisher distance_pub_;
   
   };
 };
