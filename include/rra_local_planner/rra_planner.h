@@ -72,8 +72,8 @@
 // #define Kp 0.1
 // #define Ki 0
 
-#define PID_Kp_LINEAR                   0.075   // Proportional controller gain
-#define PID_Kp_ANGULAR                  0.75   // Proportional controller gain
+#define PID_Kp_LINEAR                   0.15   // Proportional controller gain
+#define PID_Kp_ANGULAR                  3.5   // Proportional controller gain
 
 #define PID_Ki_LINEAR                   0.0   // Proportional controller gain
 #define PID_Ki_ANGULAR                  0.0   // Proportional controller gain
@@ -143,7 +143,8 @@ namespace rra_local_planner {
       base_local_planner::Trajectory findBestPath(
           tf::Stamped<tf::Pose> global_pose,
           tf::Stamped<tf::Pose> global_vel,
-          tf::Stamped<tf::Pose>& drive_velocities);
+          tf::Stamped<tf::Pose>& drive_velocities,
+          geometry_msgs::Twist& cmd_vell);
       // base_local_planner::Trajectory findBestPath(
       //     tf::Stamped<tf::Pose> global_pose,
       //     tf::Stamped<tf::Pose> global_vel,
@@ -202,6 +203,7 @@ namespace rra_local_planner {
       double linear_vel(double goal_x, double goal_y, double self_x, double self_y, double constt);
 
       void publishDistance(double dist);
+      void publishController(geometry_msgs::Twist ctrl);
 
     private:
 
@@ -254,7 +256,11 @@ namespace rra_local_planner {
 
       // for performance evaluation
       ros::Publisher distance_pub_;
-  
-  };
+
+      // Controller debugging porpose
+      ros::Publisher controller_pub_;
+
+      geometry_msgs::Twist last_cmd_vel_;
+    };
 };
 #endif

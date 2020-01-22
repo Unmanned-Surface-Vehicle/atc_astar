@@ -198,7 +198,7 @@ namespace rra_local_planner {
     drive_cmds.frame_id_ = costmap_ros_->getBaseFrameID();
 
     // call with updated footprint
-    base_local_planner::Trajectory path = dp_->findBestPath(global_pose, robot_vel, drive_cmds);
+    base_local_planner::Trajectory path = dp_->findBestPath(global_pose, robot_vel, drive_cmds, cmd_vel);
     //ROS_ERROR("Best: %.2f, %.2f, %.2f, %.2f", path.xv_, path.yv_, path.thetav_, path.cost_);
 
     //For timing uncomment
@@ -210,9 +210,9 @@ namespace rra_local_planner {
     // ROS_INFO("Cycle time: %.9f", t_diff);
 
     //pass along drive commands
-    cmd_vel.linear.x = drive_cmds.getOrigin().getX();
-    cmd_vel.linear.y = drive_cmds.getOrigin().getY();
-    cmd_vel.angular.z = tf::getYaw(drive_cmds.getRotation());
+    // cmd_vel.linear.x = drive_cmds.getOrigin().getX();
+    // cmd_vel.linear.y = drive_cmds.getOrigin().getY();
+    // cmd_vel.angular.z = tf::getYaw(drive_cmds.getRotation());
 
     //if we cannot move... tell someone
     std::vector<geometry_msgs::PoseStamped> local_plan;

@@ -146,7 +146,8 @@ namespace rra_local_planner {
     pid_I_linear_   = 0;
     pid_I_angular_  = 0;
 
-    distance_pub_ = private_nh.advertise<std_msgs::Float64>("distance", 1);
+    distance_pub_   = private_nh.advertise<std_msgs::Float64>("distance", 1);
+    controller_pub_ = private_nh.advertise<geometry_msgs::Twist>("controller", 1);
 
     //Assuming this planner is being run within the navigation stack, we can
     //just do an upward search for the frequency at which its being run. This
@@ -326,7 +327,8 @@ namespace rra_local_planner {
   base_local_planner::Trajectory RRAPlanner::findBestPath(
       tf::Stamped<tf::Pose> global_pose,
       tf::Stamped<tf::Pose> global_vel,
-      tf::Stamped<tf::Pose>& drive_velocities) 
+      tf::Stamped<tf::Pose>& drive_velocities, 
+      geometry_msgs::Twist& cmd_vell) 
   {
 
     // global_vel_.position.x = global_vel.getOrigin().getX();
@@ -420,15 +422,15 @@ namespace rra_local_planner {
         // ROS_INFO("Last A* goal valid");
 
         drive_velocities = last_drive_velocities_;
+        cmd_vell = last_cmd_vel_;
         result_traj_.cost_ = 12;
-
       }else                                       // * if A* goal os current pos ARE NOT valid AND last goal IS NOT valid then do not generate any velocity
       {
         // ROS_INFO("Last A* goal INVALID");
 
         drive_velocities.setIdentity();
+        // cmd_vell = geometry_msgs::Twist(0);
         result_traj_.cost_ = -7;
-
       }
       
       return result_traj_;
@@ -562,13 +564,33 @@ namespace rra_local_planner {
 
     //-----------------------------* generate cmd_vel
 
-    Eigen::Vector3f pos(global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), tf::getYaw(global_pose.getRotation()));
-    // debrief stateful scoring functions
-    oscillation_costs_.updateOscillationFlags(pos, &result_traj_, planner_util_->getCurrentLimits().min_trans_vel);
-
     // Creates cmd_vel populating drive_velocities with translation and rotation matrixes
     unsigned short int local_path_index_to_follow = 0;
     local_path_index_to_follow = local_path_at_global_frame.size() >= POSE_TO_FOLLOW ? POSE_TO_FOLLOW -1 : local_path_at_global_frame.size() -1;
+
+    //controller debug
+    double angular = angular_vel(local_path_at_global_frame[local_path_index_to_follow].x,
+                                 local_path_at_global_frame[local_path_index_to_follow].y, global_pose.getOrigin().getX(),
+                                 global_pose.getOrigin().getY(),
+                                 tf::getYaw(global_pose.getRotation()),
+                                 PID_Kp_ANGULAR);
+
+    double linear = linear_vel(
+        local_path_at_global_frame[local_path_index_to_follow].x,
+        local_path_at_global_frame[local_path_index_to_follow].y,
+        global_pose.getOrigin().getX(),
+        global_pose.getOrigin().getY(),
+        PID_Kp_LINEAR);
+
+    geometry_msgs::Twist cmd_vel;
+    cmd_vel.linear.x = linear;
+    cmd_vel.angular.z = angular;
+
+    publishController(cmd_vel);
+
+    Eigen::Vector3f pos(global_pose.getOrigin().getX(), global_pose.getOrigin().getY(), tf::getYaw(global_pose.getRotation()));
+    // debrief stateful scoring functions
+    oscillation_costs_.updateOscillationFlags(pos, &result_traj_, planner_util_->getCurrentLimits().min_trans_vel);
 
     double ang = steering_angle(  local_path_at_global_frame[local_path_index_to_follow].x, 
                                   local_path_at_global_frame[local_path_index_to_follow].y, 
@@ -580,43 +602,41 @@ namespace rra_local_planner {
     if (fabs(ang) <= STEERING_ANGLE*M_PI/180 )
     {
           start = tf::Vector3(
-                      linear_vel(
-                                  local_path_at_global_frame[local_path_index_to_follow].x, 
-                                  local_path_at_global_frame[local_path_index_to_follow].y, 
-                                  global_pose.getOrigin().getX(), 
-                                  global_pose.getOrigin().getY(), 
-                                  PID_Kp_LINEAR
-                                ), 
+                      linear, 
                       0, 
                       0);
 
-          drive_velocities.setOrigin(start);
-      
-    }else if ( last_astar_goal_.x != -1 && last_astar_goal_.y != -1 )
+          // drive_velocities.setOrigin(start);
+          geometry_msgs::Pose p;
+          p.position.x = linear;
+          cmd_vell.linear.x = linear;
+    }
+    else if (last_astar_goal_.x != -1 && last_astar_goal_.y != -1)
     {
 
       drive_velocities.setOrigin(last_drive_velocities_.getOrigin());
+      cmd_vell  = last_cmd_vel_;
 
-    }else{ drive_velocities.setOrigin(start); }
-    
+    }else{ drive_velocities.setOrigin(start);
+      cmd_vell.linear.x = linear;
+    }
+
     // drive_velocities.setOrigin(start);    
     // drive_velocities.setOrigin(last_drive_velocities_.getOrigin());        
 
     tf::Matrix3x3 matrix;
     matrix.setRotation(
                         tf::createQuaternionFromYaw(
-                                                    angular_vel(local_path_at_global_frame[local_path_index_to_follow].x, 
-                                                    local_path_at_global_frame[local_path_index_to_follow].y, global_pose.getOrigin().getX(), 
-                                                    global_pose.getOrigin().getY(), 
-                                                    tf::getYaw(global_pose.getRotation()), 
-                                                    PID_Kp_ANGULAR)
+                                                    angular
                                                     )
                       );
     drive_velocities.setBasis(matrix);
+    cmd_vell.angular.z = angular;
 
     last_astar_goal_.x = astar_local_goal_global_frame.x;
     last_astar_goal_.y = astar_local_goal_global_frame.y;
     last_drive_velocities_ = drive_velocities;
+    last_cmd_vel_ = cmd_vell;
 
     return result_traj_;
   }
@@ -629,24 +649,28 @@ namespace rra_local_planner {
   // As outlined in Section 4.1.1, a simple heading proportional
   // controller based on Bertaska2015Experimental and Go to Goal ROS move_base tutorial
   double RRAPlanner::linear_vel(double goal_x, double goal_y, double self_x, double self_y, double constt){
-    return constt * euclidian_distance(goal_x, goal_y, self_x, self_y);
+    // return constt * euclidian_distance(goal_x, goal_y, self_x, self_y);
 
-    // double err = euclidian_distance(goal_x, goal_y, self_x, self_y);
-    // double P = PID_Kp_LINEAR * err;
-    // pid_I_linear_ += PID_Ki_LINEAR * err;
+    double err    = euclidian_distance(goal_x, goal_y, self_x, self_y);
+    double P      =   PID_Kp_LINEAR * err;
+    pid_I_linear_ +=  PID_Ki_LINEAR * err;
 
-    // return P + pid_I_linear_;
+    // publishController(err);
+
+    return P + pid_I_linear_;
 
   }
 
   double RRAPlanner::angular_vel(double goal_x, double goal_y, double self_x, double self_y, double self_th, double constt){
-    return constt * (steering_angle(goal_x, goal_y, self_x, self_y) - self_th);
+    // return constt * (steering_angle(goal_x, goal_y, self_x, self_y) - self_th);
 
-    // double err = steering_angle(goal_x, goal_y, self_x, self_y) - self_th;
-    // double P = PID_Kp_ANGULAR * err;
-    // pid_I_angular_ += PID_Ki_ANGULAR * err;
+    double err      = steering_angle(goal_x, goal_y, self_x, self_y) - self_th;
+    double P        = PID_Kp_ANGULAR * err;
+    pid_I_angular_ += PID_Ki_ANGULAR * err;
 
-    // return P + pid_I_angular_;
+    // publishController(err + self_th);
+
+    return P + pid_I_angular_;
   }
 
   double steering_angle(double goal_x, double goal_y, double self_x, double self_y){
@@ -1243,6 +1267,12 @@ colregs_encounter_type RRAPlanner::identifyCOLREGSEncounterType(tf::Stamped<tf::
     std_msgs::Float64 msg;
     msg.data = dist;
     distance_pub_.publish(msg);
+
+  }
+
+  void RRAPlanner::publishController(geometry_msgs::Twist cmd_vel){
+
+    controller_pub_.publish(cmd_vel);
 
   }
 
