@@ -1,4 +1,4 @@
-# rra_local_planner
+# A* with Artificial Terrain Cost for Search Space Restriction
 Rule-based Repairing A* local planner ROS package
 
 ## Improvements
