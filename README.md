@@ -1,6 +1,6 @@
 # ATC A*
-A* with Artificial Terrain Cost for Search Space Restriction local planner ROS package
-currently being used together with USV_SIM_LSA USV simulator.
+A* with Artificial Terrain Cost for Search Space Restriction. ROS package
+currently being used together with USV_SIM_LSA USV simulator as local planner.
 
 ## Improvements
 
