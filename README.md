@@ -5,8 +5,7 @@ A* with Artificial Terrain Cost for Search Space Restriction.
 ROS plugin currently being used together with USV_sim USV simulator as local planner.
 
 ## ATC A*
-@brief: Implements of a modification of the method presented by Agrawal et al., for COLREGS-compliance due to the creation of virtual obstacles. whole USV Guidance System, responsible by mission planning and path planning.  
-@currently: disabled.
+@brief: Implementation of a modification of the method presented by Agrawal et al., for COLREGS-compliance through the creation of virtual obstacles.
 
 Agrawal,  P.;  Dolan,  J.  M.  “COLREGS-compliant  target  following  for  an  UnmannedSurface Vehicle in dynamic environments”,IEEE International Conference on IntelligentRobots and Systems, vol. 2015-Decem, 2015, pp. 1065–1070.
 
