@@ -72,7 +72,8 @@
 // #define Kp 0.1
 // #define Ki 0
 
-#define PID_Kp_LINEAR                   0.075   // Proportional controller gain
+// #define PID_Kp_LINEAR                   0.075   // Proportional controller gain
+#define PID_Kp_LINEAR                   0.1   // Proportional controller gain
 #define PID_Kp_ANGULAR                  0.75   // Proportional controller gain
 
 #define PID_Ki_LINEAR                   0.0   // Proportional controller gain
@@ -203,6 +204,8 @@ namespace rra_local_planner {
 
       void publishDistance(double dist);
 
+      bool cpaCollisionRiskIndex(void);
+
     private:
 
       base_local_planner::LocalPlannerUtil *planner_util_;
@@ -254,7 +257,12 @@ namespace rra_local_planner {
 
       // for performance evaluation
       ros::Publisher distance_pub_;
-  
+      ros::Publisher tcpa_pub_;
+      ros::Publisher dcpa_pub_;
+
+      unsigned short int ttl_atc = 0;
+      unsigned short int first_sector_detected_ = 0;
+      colregs_encounter_type first_colregs_identified_ = null;
   };
 };
 #endif

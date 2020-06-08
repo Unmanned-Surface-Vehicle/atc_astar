@@ -147,6 +147,8 @@ namespace rra_local_planner {
     pid_I_angular_  = 0;
 
     distance_pub_ = private_nh.advertise<std_msgs::Float64>("distance", 1);
+    tcpa_pub_ = private_nh.advertise<std_msgs::Float64>("t_cpa", 1);
+    dcpa_pub_ = private_nh.advertise<std_msgs::Float64>("d_cpa", 1);
 
     //Assuming this planner is being run within the navigation stack, we can
     //just do an upward search for the frequency at which its being run. This
@@ -311,6 +313,76 @@ namespace rra_local_planner {
     }
   }
 
+  bool RRAPlanner::cpaCollisionRiskIndex(void)
+  {
+    std_msgs::Float64 msg;
+    bool riskOfCollision = false;
+    double norm_va_vb = 0;
+    double dot_product = 0;
+    double pos_result_x = 0;
+    double pos_result_y = 0;
+    double vel_result_x = 0;
+    double vel_result_y = 0;
+    double t_cpa, d_cpa = 0;
+    double own_vessel_component_x = 0;
+    double own_vessel_component_y = 0;
+    double other_vessel_component_x = 0;
+    double other_vessel_component_y = 0;
+
+    norm_va_vb = euclidian_distance(global_vel_.position.x, 
+                                    global_vel_.position.y, 
+                                    other_vessel_vel_.linear.x, 
+                                    other_vessel_vel_.linear.y);
+
+    if(norm_va_vb > 0.35)
+    {
+      pos_result_x = global_pose_.position.x - other_vessel_pose_.position.x;
+      pos_result_y = global_pose_.position.y - other_vessel_pose_.position.y;
+
+      vel_result_x = global_vel_.position.x - other_vessel_vel_.linear.x;
+      vel_result_y = global_vel_.position.y - other_vessel_vel_.linear.y;
+
+      dot_product = (pos_result_x * vel_result_x) + (pos_result_y * vel_result_y);
+
+      t_cpa = fabs(dot_product / pow(norm_va_vb, 2));
+    }
+    else
+    {
+      t_cpa = 0;
+    }
+
+    own_vessel_component_x = global_pose_.position.x + global_vel_.position.x * t_cpa;
+    own_vessel_component_y = global_pose_.position.y + global_vel_.position.y * t_cpa;
+    
+    other_vessel_component_x = other_vessel_pose_.position.x + other_vessel_vel_.linear.x * t_cpa;
+    other_vessel_component_y = other_vessel_pose_.position.y + other_vessel_vel_.linear.y * t_cpa;
+
+    d_cpa = euclidian_distance(other_vessel_component_x, other_vessel_component_y, own_vessel_component_x, own_vessel_component_y);
+
+    // ROS_INFO("Positions:");
+    // ROS_INFO("pa: (%f, %f)", global_pose_.position.x, global_pose_.position.y);
+    // ROS_INFO("pb: (%f, %f)\n", other_vessel_pose_.position.x, other_vessel_pose_.position.y);
+    // ROS_INFO("Velocities");
+    // ROS_INFO("va (%f, %f)", global_vel_.position.x, global_vel_.position.y);
+    // ROS_INFO("vb (%f, %f)\n", other_vessel_vel_.linear.x, other_vessel_vel_.linear.y);
+    // ROS_INFO("Results");
+    // ROS_INFO("pa - pb: (%f, %f)", pos_result_x, pos_result_y);
+    // ROS_INFO("va - vb: (%f, %f)", vel_result_x, vel_result_y);
+    // ROS_INFO("dot_product: %f", dot_product);
+    // ROS_INFO("norm_va_vb: %f", norm_va_vb);
+    // ROS_INFO("pow(norm_va_vb, 2): %f\n", pow(norm_va_vb, 2));
+
+    // ROS_INFO("t_cpa: %f", t_cpa);
+    // ROS_INFO("d_cpa: %f\n", d_cpa);
+
+    msg.data = t_cpa;
+    tcpa_pub_.publish(msg);
+    msg.data = d_cpa;
+    dcpa_pub_.publish(msg);
+
+    return (t_cpa <= 20 && d_cpa <= 9 ? true : false);
+  }
+
   /*
    * given the current state of the robot and the global plan, generates linear and angular velocities command
    * uses last position of global plan inside local costmap as A* goal
@@ -329,8 +401,8 @@ namespace rra_local_planner {
       tf::Stamped<tf::Pose>& drive_velocities) 
   {
 
-    // global_vel_.position.x = global_vel.getOrigin().getX();
-    // global_vel_.position.y = global_vel.getOrigin().getY();
+    global_vel_.position.x = global_vel.getOrigin().getX();
+    global_vel_.position.y = global_vel.getOrigin().getY();
 
     global_pose_.position.x = global_pose.getOrigin().getX();
     global_pose_.position.y = global_pose.getOrigin().getY();
@@ -442,12 +514,23 @@ namespace rra_local_planner {
     // std::cout << "Finished conversion" << std::endl;
     // ROS_INFO("Costmap size: %d x %d", planner_util_->getCostmap()->getSizeInCellsX(), planner_util_->getCostmap()->getSizeInCellsY());
     // ROS_INFO("Costmap resolution: %f ", planner_util_->getCostmap()->getResolution());
-    
+
     //-----------------------------* creates artificial terrain cost
     // Artificial Terrain Cost for COLREGS-COMPLIANCE if is there any other vessel near
-    if (isThereAnyOtherVesselNear())
+    bool weHaveCompany = false;
+    bool weAreInDanger = false;
+
+    weHaveCompany = isThereAnyOtherVesselNear();
+    weAreInDanger = cpaCollisionRiskIndex();
+
+    if (weHaveCompany && weAreInDanger)
     {
-      colregs_encounter_type  risk        = identifyCOLREGSEncounterType(global_pose);
+      if(first_colregs_identified_ == null)
+      {
+        // colregs_encounter_type risk = identifyCOLREGSEncounterType(global_pose);
+        first_colregs_identified_ = identifyCOLREGSEncounterType(global_pose);
+      }
+
 
       // Artificial Terrain Cost for COLREGS-COMPLIANCE
       geometry_msgs::Point diff2_pos;
@@ -455,29 +538,34 @@ namespace rra_local_planner {
       other_vessel_pose_.position.x = -1;
       other_vessel_pose_.position.y = -1;
 
-      unsigned short int sector = 0;
-      double ori = (180.0 / M_PI) * tf::getYaw(global_pose.getRotation());
+      if(first_sector_detected_ == 0)
+      {
+        unsigned short int sector = 0;
+        double ori = (180.0 / M_PI) * tf::getYaw(global_pose.getRotation());
 
-      if (ori >= -45 && ori < 45)
-      {
-        sector = 1;
-      }
-      else if (ori >= 45 && ori < 135)
-      {
-        sector = 2;
-      }
-      else if ((ori >= 135 && ori < 180) || (ori >= -180 && ori < -135))
-      {
-        sector = 3;
-      }
-      else if (ori >= -135 && ori < -45)
-      {
-        sector = 4;
-      }
-      
-      
+        // ROS_INFO("ori: %f", ori);
 
-      std::vector<geometry_msgs::Point> artificial_terrain = createArtificialTerrainCost(diff2_pos, risk, sector);
+        if (ori >= -45 && ori < 45)
+        {
+          sector = 1;
+        }
+        else if (ori >= 45 && ori < 135)
+        {
+          sector = 2;
+        }
+        else if ((ori >= 135 && ori < 180) || (ori >= -180 && ori < -135))
+        {
+          sector = 3;
+        }
+        else if (ori >= -135 && ori < -45)
+        {
+          sector = 4;
+        }
+
+        first_sector_detected_ = sector;
+      }
+
+      std::vector<geometry_msgs::Point> artificial_terrain = createArtificialTerrainCost(diff2_pos, first_colregs_identified_, first_sector_detected_);
 
       // std::cout << "Artificial Terrain: " << std::endl;
       // for (auto pos = artificial_terrain.end()-1; pos != artificial_terrain.begin(); pos--)
@@ -501,15 +589,18 @@ namespace rra_local_planner {
         //     (std::fabs(diff2_pos.x - global_pose.getOrigin().getX()) > CRITICAL_DISTANCE) ||
         //     (std::fabs(diff2_pos.y - global_pose.getOrigin().getY()) > CRITICAL_DISTANCE))
         // {
-        if (euclidian_distance(diff2_pos.x, diff2_pos.y, global_pose.getOrigin().getX(), global_pose.getOrigin().getY()) > CRITICAL_DISTANCE)         
-        {
+        // if (euclidian_distance(diff2_pos.x, diff2_pos.y, global_pose.getOrigin().getX(), global_pose.getOrigin().getY()) > CRITICAL_DISTANCE)         
+        // {
 
           graph->walls.insert(Pos{mx, my, 0, double(COSTMAP_OCCUPANCE_ACCEPTANCE) +1.0});
 
-        }
-        
-      }
-
+          // }
+      }  
+    }
+    else
+    {
+      first_sector_detected_ = 0;
+      first_colregs_identified_ = null;
     }
 
     // ROS_INFO("A* goal: (%d, %d)", current_astar_goal.x, current_astar_goal.y);
@@ -734,7 +825,7 @@ namespace rra_local_planner {
     //// creates obstacle based on ori
 
     short int width, length, x_offset;
-    
+
     switch (risk)
     {
     case HeadOn:
@@ -854,7 +945,7 @@ namespace rra_local_planner {
         break;
       
       case 3:
-        ROS_INFO("Left S3");
+        // ROS_INFO("Left S3");
         break;
       
       case 4:
@@ -1081,11 +1172,7 @@ namespace rra_local_planner {
       // ROS_INFO("NO RISK");
       break;
     }
-    
 
-
-
-    
     // // Hardcoded ajustments
     // width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
     // length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
