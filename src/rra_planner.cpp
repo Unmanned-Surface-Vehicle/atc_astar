@@ -313,6 +313,19 @@ namespace rra_local_planner {
     }
   }
 
+
+  /* Given both own vessel's and other vessel's current position and 
+   * velocity vector, this routine evaluate the collision risk index (CRI)
+   * thorugh closest point of approach (CPA) technique, which is calculated
+   * as follows:
+   * 
+   * if || va - vb || <= 0.35 than tcpa = 0
+   * else tcpa = ((pa - pb)x(va - vb))/||va - vb||^2
+   * dcpa = ||(pa + va * tcpa) - (pb - vb * tcpa) ||
+   * if tcpa <=20 and dcpa <= 9 than there is risk of collision and the routine
+   * returns TRUE.
+   */
+
   bool RRAPlanner::cpaCollisionRiskIndex(void)
   {
     std_msgs::Float64 msg;
@@ -371,6 +384,8 @@ namespace rra_local_planner {
     // ROS_INFO("dot_product: %f", dot_product);
     // ROS_INFO("norm_va_vb: %f", norm_va_vb);
     // ROS_INFO("pow(norm_va_vb, 2): %f\n", pow(norm_va_vb, 2));
+    // ROS_INFO("pa + va*tcpa: (%f, %f)", own_vessel_component_x, own_vessel_component_y);
+    // ROS_INFO("pb + vb*tcpa: (%f, %f)", other_vessel_component_x, other_vessel_component_y);
 
     // ROS_INFO("t_cpa: %f", t_cpa);
     // ROS_INFO("d_cpa: %f\n", d_cpa);
@@ -523,14 +538,13 @@ namespace rra_local_planner {
     weHaveCompany = isThereAnyOtherVesselNear();
     weAreInDanger = cpaCollisionRiskIndex();
 
-    if (weHaveCompany && weAreInDanger)
+    if (weHaveCompany)
     {
       if(first_colregs_identified_ == null)
       {
         // colregs_encounter_type risk = identifyCOLREGSEncounterType(global_pose);
         first_colregs_identified_ = identifyCOLREGSEncounterType(global_pose);
       }
-
 
       // Artificial Terrain Cost for COLREGS-COMPLIANCE
       geometry_msgs::Point diff2_pos;
@@ -565,37 +579,41 @@ namespace rra_local_planner {
         first_sector_detected_ = sector;
       }
 
-      std::vector<geometry_msgs::Point> artificial_terrain = createArtificialTerrainCost(diff2_pos, first_colregs_identified_, first_sector_detected_);
-
-      // std::cout << "Artificial Terrain: " << std::endl;
-      // for (auto pos = artificial_terrain.end()-1; pos != artificial_terrain.begin(); pos--)
-      // {
-      //   std::cout << "( " << pos->x << ", " << pos->y << " )" << std::endl;
-      // }
-
-      for (auto pos = artificial_terrain.begin(); pos != artificial_terrain.end(); pos++)
+      if(weAreInDanger)
       {
+        ROS_INFO("Creating virtual obstacles!");
+        std::vector<geometry_msgs::Point> artificial_terrain = createArtificialTerrainCost(diff2_pos, first_colregs_identified_, first_sector_detected_);
 
-        local_costmap_2d->worldToMapEnforceBounds(  pos->x, 
-                                                    pos->y, 
-                                                    mx, 
-                                                    my);
-
-        // ROS_INFO("Before set (%d, %d): %d", mx, my, local_costmap_2d->getCost(mx, my));
-        // local_costmap_2d->setCost(mx, my, (unsigned char)255);
-        // ROS_INFO("After set (%d, %d): %d", mx, my, local_costmap_2d->getCost(mx, my));
-
-        // if ((euclidian_distance(diff2_pos.x, diff2_pos.y, global_pose.getOrigin().getX(), global_pose.getOrigin().getY()) > CRITICAL_DISTANCE) ||
-        //     (std::fabs(diff2_pos.x - global_pose.getOrigin().getX()) > CRITICAL_DISTANCE) ||
-        //     (std::fabs(diff2_pos.y - global_pose.getOrigin().getY()) > CRITICAL_DISTANCE))
+        // std::cout << "Artificial Terrain: " << std::endl;
+        // for (auto pos = artificial_terrain.end()-1; pos != artificial_terrain.begin(); pos--)
         // {
-        // if (euclidian_distance(diff2_pos.x, diff2_pos.y, global_pose.getOrigin().getX(), global_pose.getOrigin().getY()) > CRITICAL_DISTANCE)         
-        // {
+        //   std::cout << "( " << pos->x << ", " << pos->y << " )" << std::endl;
+        // }
 
-          graph->walls.insert(Pos{mx, my, 0, double(COSTMAP_OCCUPANCE_ACCEPTANCE) +1.0});
+        for (auto pos = artificial_terrain.begin(); pos != artificial_terrain.end(); pos++)
+        {
 
-          // }
-      }  
+          local_costmap_2d->worldToMapEnforceBounds(  pos->x, 
+                                                      pos->y, 
+                                                      mx, 
+                                                      my);
+
+          // ROS_INFO("Before set (%d, %d): %d", mx, my, local_costmap_2d->getCost(mx, my));
+          // local_costmap_2d->setCost(mx, my, (unsigned char)255);
+          // ROS_INFO("After set (%d, %d): %d", mx, my, local_costmap_2d->getCost(mx, my));
+
+          // if ((euclidian_distance(diff2_pos.x, diff2_pos.y, global_pose.getOrigin().getX(), global_pose.getOrigin().getY()) > CRITICAL_DISTANCE) ||
+          //     (std::fabs(diff2_pos.x - global_pose.getOrigin().getX()) > CRITICAL_DISTANCE) ||
+          //     (std::fabs(diff2_pos.y - global_pose.getOrigin().getY()) > CRITICAL_DISTANCE))
+          // {
+          // if (euclidian_distance(diff2_pos.x, diff2_pos.y, global_pose.getOrigin().getX(), global_pose.getOrigin().getY()) > CRITICAL_DISTANCE)         
+          // {
+
+            graph->walls.insert(Pos{mx, my, 0, double(COSTMAP_OCCUPANCE_ACCEPTANCE) +1.0});
+
+            // }
+        }  
+      }
     }
     else
     {
@@ -832,7 +850,7 @@ namespace rra_local_planner {
       switch (sector)
       {
       case 1:
-        // ROS_INFO("HeadOn S1");
+        ROS_INFO("HeadOn S1");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -856,7 +874,7 @@ namespace rra_local_planner {
         break;
       
       case 2:
-        // ROS_INFO("HeadOn S2");
+        ROS_INFO("HeadOn S2");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -880,7 +898,7 @@ namespace rra_local_planner {
         break;
       
       case 3:
-        // ROS_INFO("HeadOn S3");
+        ROS_INFO("HeadOn S3");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -904,7 +922,7 @@ namespace rra_local_planner {
         break;
       
       case 4:
-        // ROS_INFO("HeadOn S4");
+        ROS_INFO("HeadOn S4");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -928,7 +946,7 @@ namespace rra_local_planner {
         break;
       
       default:
-        // ROS_INFO("HeadOn No Section");
+        ROS_INFO("HeadOn No Section");
         break;
       }
       break;
@@ -937,23 +955,23 @@ namespace rra_local_planner {
       switch (sector)
       {
       case 1:
-        // ROS_INFO("Left S1");
+        ROS_INFO("Left S1");
         break;
       
       case 2:
-        // ROS_INFO("Left S2");
+        ROS_INFO("Left S2");
         break;
       
       case 3:
-        // ROS_INFO("Left S3");
+        ROS_INFO("Left S3");
         break;
       
       case 4:
-        // ROS_INFO("Left S4");
+        ROS_INFO("Left S4");
         break;
       
       default:
-        // ROS_INFO("Left No Section");
+        ROS_INFO("Left No Section");
         break;
       }
       break;
@@ -962,7 +980,7 @@ namespace rra_local_planner {
       switch (sector)
       {
       case 1:
-        // ROS_INFO("Right S1");
+        ROS_INFO("Right S1");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -986,7 +1004,7 @@ namespace rra_local_planner {
         break;
       
       case 2:
-        // ROS_INFO("Right S2");
+        ROS_INFO("Right S2");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -1010,7 +1028,7 @@ namespace rra_local_planner {
         break;
       
       case 3:
-        // ROS_INFO("Right S3");
+        ROS_INFO("Right S3");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -1034,7 +1052,7 @@ namespace rra_local_planner {
         break;
       
       case 4:
-        // ROS_INFO("Right S4");
+        ROS_INFO("Right S4");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -1058,7 +1076,7 @@ namespace rra_local_planner {
         break;
       
       default:
-        // ROS_INFO("Right No Section");
+        ROS_INFO("Right No Section");
         break;
       }
       break;
@@ -1067,7 +1085,7 @@ namespace rra_local_planner {
       switch (sector)
       {
       case 1:
-        // ROS_INFO("Overtaking S1");
+        ROS_INFO("Overtaking S1");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -1091,7 +1109,7 @@ namespace rra_local_planner {
         break;
       
       case 2:
-        // ROS_INFO("Overtaking S2");
+        ROS_INFO("Overtaking S2");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -1115,7 +1133,7 @@ namespace rra_local_planner {
         break;
       
       case 3:
-        // ROS_INFO("Overtaking S3");
+        ROS_INFO("Overtaking S3");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -1139,7 +1157,7 @@ namespace rra_local_planner {
         break;
       
       case 4:
-        // ROS_INFO("Overtaking S4");
+        ROS_INFO("Overtaking S4");
         // Hardcoded ajustments
         width     = ARTIFICIAL_TERRAIN_COST_WIDTH/2;
         length    = ARTIFICIAL_TERRAIN_COST_LENGTH +2;
@@ -1163,13 +1181,13 @@ namespace rra_local_planner {
         break;
       
       default:
-        // ROS_INFO("Overtaking No Section");
+        ROS_INFO("Overtaking No Section");
         break;
       }
       break;
     
     default:
-      // ROS_INFO("NO RISK");
+      ROS_INFO("NO RISK");
       break;
     }
 
@@ -1289,13 +1307,13 @@ colregs_encounter_type RRAPlanner::identifyCOLREGSEncounterType(tf::Stamped<tf::
     if ( (bearing_angle >= -15.0) && (bearing_angle < 15.0) )
     {
 
-      // ROS_INFO("Head On");
+      ROS_INFO("Head On");
       return HeadOn;
 
     }else if ( (bearing_angle >= 15.0) && (bearing_angle < 112.5) )
     {
 
-      // ROS_INFO("Crossing from RIGHT");
+      ROS_INFO("Crossing from RIGHT");
       return Right;
 
     } else if ( ((bearing_angle >= 112.5) && (bearing_angle < 180.0)) ||  ((bearing_angle >= - 180.0) && (bearing_angle < - 112.5)) )
@@ -1312,12 +1330,12 @@ colregs_encounter_type RRAPlanner::identifyCOLREGSEncounterType(tf::Stamped<tf::
       //   return null;
       // }
     
-      // ROS_INFO("Overtaking");
+      ROS_INFO("Overtaking");
       return Overtaking;
     }else if ( (bearing_angle >= -112.5) && (bearing_angle < -15) )
     {
 
-      // ROS_INFO("Crossing from LEFT");
+      ROS_INFO("Crossing from LEFT");
       return Left;
 
     }
